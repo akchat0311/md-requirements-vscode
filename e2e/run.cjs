@@ -63,23 +63,20 @@ function serve() {
   );
 }
 
-async function openEditor(browser, port, markdown) {
+async function openEditor(browser, port, markdown, config) {
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__messages.some((m) => m.type === "ready"));
   await page.evaluate(
-    (md) =>
+    ({ md, cfg }) =>
       window.postMessage(
-        {
-          type: "init",
-          protocol: 2,
-          text: md,
-          version: 1,
-          config: { requirementPatternExample: "REQ_001" },
-        },
+        { type: "init", protocol: 2, text: md, version: 1, config: cfg },
         "*",
       ),
-    markdown,
+    {
+      md: markdown,
+      cfg: config ?? { requirementPattern: { mode: "simple", example: "REQ_001" } },
+    },
   );
   await page.waitForSelector(".ProseMirror p");
   // Wait until the editor is editable and actually holds focus — a keyboard
@@ -430,6 +427,79 @@ function check(name, cond, detail) {
         json.slice(0, 200),
       ) && ok;
     }
+    await page.close();
+  }
+
+  {
+    // Scenario 6: regex-mode requirement pattern — TRANS_<Feature>_001 style
+    // IDs with a variable feature segment (mdreq.requirementPatternRegex).
+    const TRANSDOC = [
+      "## TRANS_Parking_001 The transmission shall engage park within 500 ms",
+      "",
+      "Body.",
+      "",
+      "## TRANS_Reverse_002 The transmission shall inhibit reverse above 5 km/h",
+      "",
+      "Body.",
+      "",
+      "## REQ_001 Wrong convention — must NOT match in regex mode",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, TRANSDOC, {
+      requirementPattern: {
+        mode: "regex",
+        source: "(TRANS_[A-Za-z0-9]+_\\d{3})",
+        flags: "",
+      },
+    });
+    const ids = await page.evaluate(() => {
+      const badges = [...document.querySelectorAll(".req-comment-badge")];
+      const first = badges.find((b) =>
+        b.closest("h1,h2,h3,h4,h5,h6")?.textContent.startsWith("TRANS_Parking_001"),
+      );
+      if (first) first.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      return badges.length;
+    });
+    const regexOpened = await page
+      .waitForFunction(
+        () => window.__mdreqStores.commentDrawer.getState().reqId === "TRANS_Parking_001",
+        null,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check(
+      "regex pattern matches TRANS_<Feature>_NNN requirement IDs",
+      regexOpened,
+      `drawer reqId not TRANS_Parking_001 (badges seen: ${ids})`,
+    ) && ok;
+    const wrongConventionIsSection = await page.evaluate(() => {
+      const badges = [...document.querySelectorAll(".req-comment-badge")];
+      const req = badges.find((b) =>
+        b.closest("h1,h2,h3,h4,h5,h6")?.textContent.startsWith("REQ_001"),
+      );
+      if (!req) return "no badge";
+      req.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      return "clicked";
+    });
+    const reqAsSection = await page
+      .waitForFunction(
+        () =>
+          window.__mdreqStores.commentDrawer
+            .getState()
+            .reqId?.startsWith("section:REQ_001"),
+        null,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check(
+      "non-matching convention falls back to a section target in regex mode",
+      reqAsSection,
+      String(wrongConventionIsSection),
+    ) && ok;
     await page.close();
   }
 

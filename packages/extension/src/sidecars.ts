@@ -96,11 +96,37 @@ export class SidecarService {
   }
 }
 
-/** Read the extension's editor-facing configuration. */
-export function readEditorConfig(): { requirementPatternExample: string | null } {
-  const raw = vscode.workspace
-    .getConfiguration("mdreq")
-    .get<string>("requirementPattern", "");
-  const trimmed = raw.trim();
-  return { requirementPatternExample: trimmed.length > 0 ? trimmed : null };
+/**
+ * Read the extension's editor-facing configuration. A non-empty regex takes
+ * precedence over the simple example. A syntactically invalid regex is
+ * surfaced once and ignored (fall through to simple/none) rather than
+ * silently disabling requirement detection.
+ */
+let warnedInvalidRegex: string | null = null;
+
+export function readEditorConfig(): import("./protocol").EditorConfig {
+  const cfg = vscode.workspace.getConfiguration("mdreq");
+  const regexSource = cfg.get<string>("requirementPatternRegex", "").trim();
+  const regexFlags = cfg.get<string>("requirementPatternRegexFlags", "").trim();
+  if (regexSource.length > 0) {
+    try {
+      // Surface syntax errors here; the engine additionally requires a capture
+      // group and treats any invalid pattern as unconfigured.
+      new RegExp(regexSource, regexFlags);
+      return { requirementPattern: { mode: "regex", source: regexSource, flags: regexFlags } };
+    } catch (e) {
+      if (warnedInvalidRegex !== regexSource) {
+        warnedInvalidRegex = regexSource;
+        void vscode.window.showWarningMessage(
+          `Requirements Editor: mdreq.requirementPatternRegex is not a valid regular expression (${
+            e instanceof Error ? e.message : String(e)
+          }). Falling back to the simple pattern.`,
+        );
+      }
+    }
+  }
+  const example = cfg.get<string>("requirementPattern", "").trim();
+  return {
+    requirementPattern: example.length > 0 ? { mode: "simple", example } : null,
+  };
 }

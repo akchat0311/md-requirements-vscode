@@ -12,8 +12,16 @@ export const PROTOCOL_VERSION = 2;
 export type SidecarKind = "review" | "traceability";
 
 export interface EditorConfig {
-  /** Simple-mode requirement ID example (e.g. "REQ_001"), or null for none. */
-  requirementPatternExample: string | null;
+  /**
+   * Requirement ID pattern. Simple mode derives prefix + digit width from one
+   * example ("REQ_001"); regex mode uses a user regex that must match at the
+   * start of the heading text and capture the ID (named group `id` or group 1),
+   * e.g. "(TRANS_[A-Za-z0-9]+_\\d{3})". Null disables requirement detection.
+   */
+  requirementPattern:
+    | { mode: "simple"; example: string }
+    | { mode: "regex"; source: string; flags: string }
+    | null;
 }
 
 /** Host → webview. All text payloads are LF-normalized. */

@@ -75,10 +75,15 @@ function applyExternal(text: string): void {
 
 function applyConfig(config: EditorConfig): void {
   const store = useConfigStore.getState();
-  if (config.requirementPatternExample) {
-    store.setRequirementPattern(config.requirementPatternExample);
-  } else {
+  const pattern = config.requirementPattern;
+  if (pattern === null) {
     store.clearRequirementPattern();
+  } else if (pattern.mode === "regex") {
+    // An invalid regex is stored as typed; compileRequirementPattern treats
+    // it as unconfigured (the engine's single choke point for validity).
+    store.setRequirementRegexPattern(pattern.source, pattern.flags);
+  } else {
+    store.setRequirementPattern(pattern.example);
   }
 }
 

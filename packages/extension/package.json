@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "commonjs",
   "publisher": "akchat",
@@ -21,7 +21,17 @@
         "mdreq.requirementPattern": {
           "type": "string",
           "default": "REQ_001",
-          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges — e.g. `REQ_001`, `SRS-0001`. Leave empty to disable requirement detection."
+          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges — e.g. `REQ_001`, `SRS-0001`. Ignored when `#mdreq.requirementPatternRegex#` is set. Leave both empty to disable requirement detection."
+        },
+        "mdreq.requirementPatternRegex": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Advanced: a regular expression for requirement IDs; takes precedence over the simple pattern. It must match at the START of the heading text and capture the full ID in group 1 (or a named group `id`). Example for `TRANS_<Feature>_001` IDs with a variable feature name: `(TRANS_[A-Za-z0-9]+_\\d{3})`."
+        },
+        "mdreq.requirementPatternRegexFlags": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Flags for `#mdreq.requirementPatternRegex#`, e.g. `i` for case-insensitive matching."
         }
       }
     },
