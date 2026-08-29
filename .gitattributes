@@ -1,0 +1,5 @@
+# Force LF on checkout on every platform. The engine's round-trip tests
+# assert byte-exact fixtures (corpus.md and friends), which are authored LF;
+# a CRLF checkout on Windows would break them. Runtime CRLF documents are
+# handled by the sync controller (textSync.ts), not by checkout settings.
+* text=auto eol=lf
