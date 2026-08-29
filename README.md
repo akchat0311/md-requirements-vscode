@@ -2,9 +2,9 @@
 
 Typora-style editable preview for markdown requirements documents, migrated
 from the browser-based MD_Editor per the Engine & Chassis architecture.
-The markdown `TextDocument` is the single source of truth; the proven\
-round-trip engine runs in a webview; a thin extension-host layer owns all\
-platform integration
+The markdown `TextDocument` is the single source of truth; the proven
+round-trip engine runs in a webview; a thin extension-host layer owns all
+platform integration.
 
 ## Status: Phase 0 — sync spike
 
