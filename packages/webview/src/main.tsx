@@ -22,8 +22,10 @@ createRoot(document.getElementById("editor")!).render(<App />);
 import { useReviewCommentsStore } from "@/stores/reviewCommentsStore";
 import { useTraceabilityStore } from "@/stores/traceabilityStore";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
+import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
 (window as unknown as Record<string, unknown>).__mdreqStores = {
   review: useReviewCommentsStore,
   traceability: useTraceabilityStore,
   commentDrawer: useCommentDrawerStore,
+  traceabilityPanel: useTraceabilityPanelStore,
 };

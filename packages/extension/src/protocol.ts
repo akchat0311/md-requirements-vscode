@@ -5,7 +5,9 @@
  * and the webview refuses to run against a mismatched host.
  */
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
+
+export type ExportKind = "reviewCsv" | "traceabilityCsv";
 
 export type SidecarKind = "review" | "traceability";
 
@@ -30,12 +32,16 @@ export type HostMessage =
       text: string;
       version: number;
       config: EditorConfig;
+      /** Document basename, e.g. "spec.md" — used in export filenames/rows. */
+      docName: string;
     }
   | { type: "docChanged"; text: string; version: number }
   | { type: "ack"; version: number }
   | { type: "configChanged"; config: EditorConfig }
   /** Sidecar file content (parsed JSON), or null when the file is absent. */
-  | { type: "sidecarChanged"; kind: SidecarKind; data: unknown };
+  | { type: "sidecarChanged"; kind: SidecarKind; data: unknown }
+  /** Ask the webview to build a CSV export from its live state. */
+  | { type: "requestExport"; kind: ExportKind };
 
 /** Webview → host. `markdown` is LF-normalized (host restores document EOL). */
 export type WebviewMessage =
@@ -43,4 +49,6 @@ export type WebviewMessage =
   | { type: "edit"; markdown: string; baseVersion: number }
   | { type: "forwardKey"; command: "undo" | "redo" | "save" }
   /** Serialized sidecar file body to persist verbatim (webview owns format). */
-  | { type: "sidecarEdit"; kind: SidecarKind; json: string };
+  | { type: "sidecarEdit"; kind: SidecarKind; json: string }
+  /** CSV built from live editor + store state; empty=true means nothing to export. */
+  | { type: "exportResult"; kind: ExportKind; csv: string; empty: boolean };

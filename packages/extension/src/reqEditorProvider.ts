@@ -1,7 +1,22 @@
 import * as vscode from "vscode";
 import { DocumentSyncController } from "./documentSync";
 import { SidecarService, readEditorConfig } from "./sidecars";
-import type { WebviewMessage } from "./protocol";
+import type { ExportKind, WebviewMessage } from "./protocol";
+
+/** The most recently focused requirements editor (for palette commands). */
+export interface ActiveEditor {
+  webview: vscode.Webview;
+  document: vscode.TextDocument;
+}
+let activeEditor: ActiveEditor | null = null;
+export function getActiveEditor(): ActiveEditor | null {
+  return activeEditor;
+}
+
+const EXPORT_SUFFIX: Record<ExportKind, string> = {
+  reviewCsv: "-review.csv",
+  traceabilityCsv: "-traceability.csv",
+};
 
 const FORWARDED_COMMANDS: Record<string, string> = {
   undo: "undo",
@@ -36,6 +51,10 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     panel.webview.html = this.buildHtml(panel.webview);
 
     const sync = new DocumentSyncController(document, panel.webview);
+    activeEditor = { webview: panel.webview, document };
+    const viewStateSub = panel.onDidChangeViewState(() => {
+      if (panel.active) activeEditor = { webview: panel.webview, document };
+    });
     const sidecars = new SidecarService(document, (m) => void panel.webview.postMessage(m));
 
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
@@ -53,7 +72,7 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     const messageSub = panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
       switch (msg.type) {
         case "ready":
-          sync.sendInit(readEditorConfig());
+          sync.sendInit(readEditorConfig(), document.uri.path.split("/").pop() ?? "document.md");
           void sidecars.sendAll();
           break;
         case "edit":
@@ -62,6 +81,24 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
         case "sidecarEdit":
           void sidecars.write(msg.kind, msg.json);
           break;
+        case "exportResult": {
+          if (msg.empty) {
+            void vscode.window.showInformationMessage("Nothing to export yet.");
+            break;
+          }
+          const base = document.uri.path.replace(/\.md$/i, "");
+          void vscode.window
+            .showSaveDialog({
+              defaultUri: document.uri.with({ path: base + EXPORT_SUFFIX[msg.kind] }),
+              filters: { CSV: ["csv"] },
+            })
+            .then(async (uri) => {
+              if (!uri) return;
+              await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.csv, "utf8"));
+              void vscode.window.showInformationMessage(`Exported ${uri.path.split("/").pop()}`);
+            });
+          break;
+        }
         case "forwardKey": {
           const command = FORWARDED_COMMANDS[msg.command];
           if (command) void vscode.commands.executeCommand(command);
@@ -71,6 +108,8 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     panel.onDidDispose(() => {
+      if (activeEditor?.webview === panel.webview) activeEditor = null;
+      viewStateSub.dispose();
       changeSub.dispose();
       configSub.dispose();
       messageSub.dispose();

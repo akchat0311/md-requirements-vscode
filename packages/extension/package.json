@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "commonjs",
   "publisher": "akchat",
@@ -15,6 +15,16 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "mdreq.exportReviewCsv",
+        "title": "Requirements: Export Review Comments as CSV"
+      },
+      {
+        "command": "mdreq.exportTraceabilityCsv",
+        "title": "Requirements: Export Traceability as CSV"
+      }
+    ],
     "configuration": {
       "title": "Markdown Requirements Editor",
       "properties": {

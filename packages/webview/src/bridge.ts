@@ -6,6 +6,7 @@ import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import { ensureKatex } from "@/editor/utils/katexLoader";
 import { useConfigStore } from "@/stores/configStore";
 import { initSidecars, onSidecarChanged } from "./sidecars";
+import { buildCsv } from "./exports";
 import type { EditorConfig, HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 
@@ -30,6 +31,7 @@ let applyingExternal = false;
 let lastSyncedText = "";
 /** LF text of the edit currently in flight (becomes lastSyncedText on ack). */
 let lastSentText = "";
+let docName = "document.md";
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Called from the editor's onUpdate; no-op until the bridge is initialized. */
@@ -96,6 +98,11 @@ function handleHostMessage(msg: HostMessage): void {
     case "sidecarChanged":
       onSidecarChanged(msg.kind, msg.data);
       return;
+    case "requestExport": {
+      const result = buildCsv(msg.kind, editor, docName);
+      vscode.postMessage({ type: "exportResult", kind: msg.kind, ...result });
+      return;
+    }
     default:
       break;
   }
@@ -109,6 +116,7 @@ function handleHostMessage(msg: HostMessage): void {
       applyConfig(msg.config);
       version = msg.version;
       lastSyncedText = msg.text;
+      docName = msg.docName;
       inFlight = false;
       pendingDirty = false;
       // Wait for the (local, lazy) KaTeX chunk before first render: math

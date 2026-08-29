@@ -70,7 +70,7 @@ async function openEditor(browser, port, markdown, config) {
   await page.evaluate(
     ({ md, cfg }) =>
       window.postMessage(
-        { type: "init", protocol: 2, text: md, version: 1, config: cfg },
+        { type: "init", protocol: 3, text: md, version: 1, config: cfg, docName: "e2e-doc.md" },
         "*",
       ),
     {
@@ -499,6 +499,108 @@ function check(name, cond, detail) {
       "non-matching convention falls back to a section target in regex mode",
       reqAsSection,
       String(wrongConventionIsSection),
+    ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 7: traceability pipeline — sidecar data in, trace badge, panel
+    // opens on badge click, store mutation posts serialized sidecar body.
+    const TDOC = [
+      "## REQ_001 The system shall respond within 2 seconds",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, TDOC);
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          type: "sidecarChanged",
+          kind: "traceability",
+          data: {
+            version: 1,
+            testCases: [{ id: "TC_100", title: "Response time under nominal load" }],
+            links: [{ tc: "TC_100", req: "REQ_001" }],
+            coverage: { REQ_001: "PARTIAL" },
+          },
+        },
+        "*",
+      );
+    });
+    const traceBadge = await page
+      .waitForSelector(".req-trace-badge:not(.req-trace-badge--empty)", { timeout: 8000 })
+      .catch(() => null);
+    ok = check("trace badge renders with linked test case", traceBadge !== null, "no badge") && ok;
+    if (traceBadge) {
+      await page.evaluate(() =>
+        document
+          .querySelector(".req-trace-badge:not(.req-trace-badge--empty)")
+          .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true })),
+      );
+      const opened = await page
+        .waitForFunction(
+          () => window.__mdreqStores.traceabilityPanel.getState().reqId === "REQ_001",
+          null,
+          { timeout: 4000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      ok = check("trace badge opens the traceability panel", opened, "panel not open") && ok;
+      const showsTc = await page
+        .waitForFunction(
+          () => document.body.textContent.includes("TC_100"),
+          null,
+          { timeout: 4000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      ok = check("traceability drawer lists the linked test case", showsTc, "TC_100 missing") && ok;
+    }
+    await page.evaluate(() => {
+      window.__mdreqStores.traceability.getState().addTestCase("TC_200", "Added from editor");
+    });
+    const traceWrote = await page
+      .waitForFunction(
+        () =>
+          window.__messages.some(
+            (m) => m.type === "sidecarEdit" && m.kind === "traceability" && m.json.includes("TC_200"),
+          ),
+        null,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("traceability mutation persists via sidecarEdit", traceWrote, "no write") && ok;
+    if (traceWrote) {
+      const parsed = JSON.parse(
+        await page.evaluate(
+          () => window.__messages.filter((m) => m.type === "sidecarEdit" && m.kind === "traceability").pop().json,
+        ),
+      );
+      ok = check(
+        "traceability sidecar keeps the browser-app schema",
+        Array.isArray(parsed.testCases) && Array.isArray(parsed.links) && parsed.coverage.REQ_001 === "PARTIAL",
+        JSON.stringify(parsed).slice(0, 150),
+      ) && ok;
+    }
+
+    // Scenario 8 (same page): host-triggered CSV exports.
+    await page.evaluate(() =>
+      window.postMessage({ type: "requestExport", kind: "traceabilityCsv" }, "*"),
+    );
+    const traceCsv = await page
+      .waitForFunction(
+        () => window.__messages.find((m) => m.type === "exportResult" && m.kind === "traceabilityCsv"),
+        null,
+        { timeout: 4000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.find((m) => m.type === "exportResult" && m.kind === "traceabilityCsv")))
+      .catch(() => null);
+    ok = check(
+      "traceability CSV export includes the linked requirement row",
+      traceCsv !== null && !traceCsv.empty && traceCsv.csv.includes("REQ_001") && traceCsv.csv.includes("TC_100"),
+      JSON.stringify(traceCsv).slice(0, 150),
     ) && ok;
     await page.close();
   }
