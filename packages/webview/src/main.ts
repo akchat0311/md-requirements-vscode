@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core";
 import { createCoreExtensions } from "@/editor/extensions/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
+import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
 import type { HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 import "./editor.css";
@@ -23,6 +24,8 @@ let pendingDirty = false;
 let applyingExternal = false;
 /** LF text the host last confirmed (init/docChanged, or our own acked edit). */
 let lastSyncedText = "";
+/** LF text of the edit currently in flight (becomes lastSyncedText on ack). */
+let lastSentText = "";
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 const mount = document.getElementById("editor")!;
@@ -46,9 +49,13 @@ function sendEdit(): void {
     pendingDirty = true;
     return;
   }
-  const markdown = serializeDocToMarkdown(editor.getJSON() as never);
+  // D9: serialize canonically, then re-emit every unchanged block verbatim
+  // from the current document text — untouched lines never get rewritten.
+  const canonical = serializeDocToMarkdown(editor.getJSON() as never);
+  const markdown = mergePreservingUnchangedBlocks(lastSyncedText, canonical);
   if (markdown === lastSyncedText) return;
   inFlight = true;
+  lastSentText = markdown;
   vscode.postMessage({ type: "edit", markdown, baseVersion: version });
 }
 
@@ -95,8 +102,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     case "ack": {
       version = msg.version;
       inFlight = false;
-      // The host confirmed our last serialization verbatim.
-      lastSyncedText = serializeDocToMarkdown(editor.getJSON() as never);
+      // The host confirmed our last sent text verbatim.
+      lastSyncedText = lastSentText;
       if (pendingDirty) {
         pendingDirty = false;
         sendEdit();
