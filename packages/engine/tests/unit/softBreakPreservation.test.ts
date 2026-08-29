@@ -30,7 +30,7 @@ describe("soft break handling through the live editor", () => {
     const json = editor.getJSON() as PMNode;
     const kinds: string[] = [];
     const walk = (n: PMNode): void => {
-      kinds.push(n.type);
+      kinds.push(n.type ?? "");
       for (const c of n.content ?? []) walk(c);
     };
     walk(json);
@@ -49,7 +49,7 @@ describe("soft break handling through the live editor", () => {
     const types = (para?.content ?? []).map((n: { type?: string }) => n.type);
     expect(types).toContain("softBreak");
     expect(types).not.toContain("hardBreak");
-    for (const n of para?.content ?? []) {
+    for (const n of (para?.content ?? []) as PMNode[]) {
       if (n.type === "text") expect(n.text).not.toContain("\n");
     }
     editor.destroy();
@@ -74,5 +74,14 @@ describe("soft break handling through the live editor", () => {
   it("expand/collapse preserves marks across a wrap inside bold", () => {
     const bold = "before **bold start\nbold end** after\n";
     expect(liveRoundTrip(bold).serialized).toBe(bold);
+  });
+
+  it("never touches code blocks — their newlines are literal content", () => {
+    // Regression: expansion used to descend into code fences, where the
+    // schema drops softBreak nodes — mermaid/code sources lost all newlines.
+    const code = "```mermaid\ngraph TD\n  A --> B\n```\n\npara after\n";
+    const { serialized, kinds } = liveRoundTrip(code);
+    expect(serialized).toBe(code);
+    expect(kinds.filter((k) => k === "softBreak")).toHaveLength(0);
   });
 });

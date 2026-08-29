@@ -11,7 +11,15 @@ import type { PMNode } from "./types";
  * wrap inside e.g. bold stays inside the bold group when serialized.
  */
 
+/**
+ * Nodes whose text content is literal — a `\n` there is real content, not a
+ * soft wrap, and the schema would silently drop inline softBreak nodes
+ * (observed: mermaid/code fences losing their newlines).
+ */
+const LITERAL_TEXT_NODES = new Set(["codeBlock"]);
+
 export function expandSoftBreaks(node: PMNode): PMNode {
+  if (node.type !== undefined && LITERAL_TEXT_NODES.has(node.type)) return node;
   const out: PMNode = { ...node };
   if (node.content) {
     const children: PMNode[] = [];
@@ -34,6 +42,7 @@ export function expandSoftBreaks(node: PMNode): PMNode {
 }
 
 export function collapseSoftBreaks(node: PMNode): PMNode {
+  if (node.type !== undefined && LITERAL_TEXT_NODES.has(node.type)) return node;
   const out: PMNode = { ...node };
   if (node.content) {
     out.content = node.content.map((child) =>

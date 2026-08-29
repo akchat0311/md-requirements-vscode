@@ -1,0 +1,27 @@
+/* Product styles: design tokens, doc-page, mermaid/katex/callout/table
+   styling, and Tailwind v4 — shared verbatim with the engine. */
+@import "../../engine/src/styles/index.css";
+
+/* Tailwind sources: component classNames live in the engine package too. */
+@source "../../engine/src";
+@source ".";
+
+/* ── Webview shell ─────────────────────────────────────────────────────── */
+
+body {
+  margin: 0;
+}
+
+#editor {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 28px 140px;
+}
+
+.ProseMirror {
+  outline: none;
+  min-height: 60vh;
+  /* ProseMirror whitespace handling (see SoftBreak.ts for the history). */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

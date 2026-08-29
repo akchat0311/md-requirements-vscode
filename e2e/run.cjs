@@ -41,12 +41,20 @@ function serve() {
       res.setHeader("content-type", "text/html");
       res.end(HTML);
     } else {
-      const file = path.join(MEDIA, path.basename(req.url));
-      if (!fs.existsSync(file)) return void res.writeHead(404).end();
-      res.setHeader(
-        "content-type",
-        file.endsWith(".js") ? "text/javascript" : "text/css",
-      );
+      const rel = decodeURIComponent((req.url || "").split("?")[0]).replace(/^\/+/, "");
+      const file = path.normalize(path.join(MEDIA, rel));
+      if (!file.startsWith(MEDIA) || !fs.existsSync(file)) {
+        return void res.writeHead(404).end();
+      }
+      const types = {
+        ".js": "text/javascript",
+        ".css": "text/css",
+        ".woff2": "font/woff2",
+        ".woff": "font/woff",
+        ".ttf": "font/ttf",
+        ".map": "application/json",
+      };
+      res.setHeader("content-type", types[path.extname(file)] ?? "application/octet-stream");
       res.end(fs.readFileSync(file));
     }
   });
@@ -194,6 +202,50 @@ function check(name, cond, detail) {
         "typing at a wrap boundary keeps soft breaks",
         md !== null && !md.includes("\\\n") && md.includes("proven and tested\nround-trip"),
         JSON.stringify(md),
+      ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 3: rich rendering — mermaid diagram, KaTeX math, callout,
+    // toolbar, and VS Code dark-theme sync. Exercises the lazy chunks
+    // (mermaid/katex load via dynamic import) and the Tailwind build.
+    const RICH = [
+      "# Rendering check",
+      "",
+      "Inline math: $e^{i\\pi} + 1 = 0$ here.",
+      "",
+      "> \\[!INFO]",
+      ">",
+      "> Callout body text",
+      "",
+      "```mermaid",
+      "graph TD",
+      "  A[Start] --> B[End]",
+      "```",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, RICH);
+    const waitFor = async (name, selector) => {
+      const found = await page
+        .waitForSelector(selector, { timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+      ok = check(name, found, `selector not found: ${selector}`) && ok;
+    };
+    await waitFor("callout renders", '.ProseMirror [data-callout-type]');
+    await waitFor("KaTeX math renders", ".ProseMirror .katex");
+    await waitFor("mermaid diagram renders", ".ProseMirror svg");
+    // The toolbar is a selection bubble menu: select a paragraph first.
+    await page.click(".ProseMirror p", { clickCount: 3 });
+    await waitFor("bubble toolbar appears on selection", "button");
+    await page.evaluate(() => document.body.classList.add("vscode-dark"));
+    await page.waitForTimeout(100);
+    ok =
+      check(
+        "dark theme syncs from VS Code body class",
+        await page.evaluate(() => document.documentElement.classList.contains("dark")),
+        "documentElement missing .dark after body got vscode-dark",
       ) && ok;
     await page.close();
   }

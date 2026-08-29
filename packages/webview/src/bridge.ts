@@ -1,11 +1,9 @@
-import { Editor } from "@tiptap/core";
-import { createCoreExtensions } from "@/editor/extensions/core";
+import type { Editor } from "@tiptap/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
 import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
 import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
 import type { HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
-import "./editor.css";
 
 declare function acquireVsCodeApi(): { postMessage(msg: WebviewMessage): void };
 
@@ -19,6 +17,7 @@ const EDIT_DEBOUNCE_MS = 250;
 // baseVersion. If an external docChanged wins a race against our in-flight
 // edit, the external content is applied and any keystrokes from the race
 // window are re-serialized on the next update (external edit wins, D3).
+let editor: Editor | null = null;
 let version = -1;
 let inFlight = false;
 let pendingDirty = false;
@@ -29,23 +28,15 @@ let lastSyncedText = "";
 let lastSentText = "";
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-const mount = document.getElementById("editor")!;
-const editor = new Editor({
-  element: mount,
-  extensions: createCoreExtensions(),
-  content: { type: "doc", content: [{ type: "paragraph" }] },
-  editable: false, // until init arrives
-  onUpdate: () => {
-    if (applyingExternal) return;
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(sendEdit, EDIT_DEBOUNCE_MS);
-  },
-  editorProps: {
-    attributes: { spellcheck: "true" },
-  },
-});
+/** Called from the editor's onUpdate; no-op until the bridge is initialized. */
+export function bridgeHandleUpdate(): void {
+  if (!editor || applyingExternal) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(sendEdit, EDIT_DEBOUNCE_MS);
+}
 
 function sendEdit(): void {
+  if (!editor) return;
   if (inFlight) {
     pendingDirty = true;
     return;
@@ -61,6 +52,7 @@ function sendEdit(): void {
 }
 
 function applyExternal(text: string): void {
+  if (!editor) return;
   applyingExternal = true;
   try {
     const selection = editor.state.selection.from;
@@ -74,12 +66,12 @@ function applyExternal(text: string): void {
   }
 }
 
-window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
-  const msg = event.data;
+function handleHostMessage(msg: HostMessage): void {
+  if (!editor) return;
   switch (msg.type) {
     case "init": {
       if (msg.protocol !== PROTOCOL_VERSION) {
-        mount.textContent =
+        document.getElementById("editor")!.textContent =
           "Requirements Editor: extension and webview versions do not match. Reinstall the extension.";
         return;
       }
@@ -112,39 +104,40 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
       break;
     }
   }
-});
+}
 
-// ── Key forwarding (architecture §6 forwardKey) ──────────────────────────────
-// Undo/redo/save must act on the TextDocument's single undo stack (D5), so
-// the webview never handles them locally.
-window.addEventListener(
-  "keydown",
-  (e) => {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod) return;
-    const key = e.key.toLowerCase();
-    if (key === "z") {
-      e.preventDefault();
-      e.stopPropagation();
-      // Flush any pending edit first so undo sees the latest state.
-      clearTimeout(debounceTimer);
-      sendEdit();
-      vscode.postMessage({ type: "forwardKey", command: e.shiftKey ? "redo" : "undo" });
-    } else if (key === "y" && e.ctrlKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      clearTimeout(debounceTimer);
-      sendEdit();
-      vscode.postMessage({ type: "forwardKey", command: "redo" });
-    } else if (key === "s") {
-      e.preventDefault();
-      e.stopPropagation();
-      clearTimeout(debounceTimer);
-      sendEdit();
-      vscode.postMessage({ type: "forwardKey", command: "save" });
-    }
-  },
-  { capture: true },
-);
+/**
+ * Attach the bridge to the live editor: listen for host messages, forward
+ * undo/redo/save chords (architecture §6 / D5 — the TextDocument owns the
+ * only undo stack), and announce readiness so the host sends `init`.
+ */
+export function initBridge(liveEditor: Editor): void {
+  if (editor) return; // React StrictMode double-invoke guard
+  editor = liveEditor;
 
-vscode.postMessage({ type: "ready" });
+  window.addEventListener("message", (event: MessageEvent<HostMessage>) =>
+    handleHostMessage(event.data),
+  );
+
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      const forward = (command: "undo" | "redo" | "save") => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearTimeout(debounceTimer);
+        sendEdit(); // flush so the host acts on the latest state
+        vscode.postMessage({ type: "forwardKey", command });
+      };
+      if (key === "z") forward(e.shiftKey ? "redo" : "undo");
+      else if (key === "y" && e.ctrlKey) forward("redo");
+      else if (key === "s") forward("save");
+    },
+    { capture: true },
+  );
+
+  vscode.postMessage({ type: "ready" });
+}
