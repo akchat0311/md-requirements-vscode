@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "commonjs",
   "publisher": "akchat",
@@ -15,6 +15,16 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Markdown Requirements Editor",
+      "properties": {
+        "mdreq.requirementPattern": {
+          "type": "string",
+          "default": "REQ_001",
+          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges — e.g. `REQ_001`, `SRS-0001`. Leave empty to disable requirement detection."
+        }
+      }
+    },
     "customEditors": [
       {
         "viewType": "mdreq.editor",

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { DocumentSyncController } from "./documentSync";
+import { SidecarService, readEditorConfig } from "./sidecars";
 import type { WebviewMessage } from "./protocol";
 
 const FORWARDED_COMMANDS: Record<string, string> = {
@@ -35,6 +36,7 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     panel.webview.html = this.buildHtml(panel.webview);
 
     const sync = new DocumentSyncController(document, panel.webview);
+    const sidecars = new SidecarService(document, (m) => void panel.webview.postMessage(m));
 
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() === document.uri.toString() && e.contentChanges.length > 0) {
@@ -42,13 +44,23 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
+    const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("mdreq")) {
+        void panel.webview.postMessage({ type: "configChanged", config: readEditorConfig() });
+      }
+    });
+
     const messageSub = panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
       switch (msg.type) {
         case "ready":
-          sync.sendInit();
+          sync.sendInit(readEditorConfig());
+          void sidecars.sendAll();
           break;
         case "edit":
           void sync.onWebviewEdit(msg.markdown, msg.baseVersion);
+          break;
+        case "sidecarEdit":
+          void sidecars.write(msg.kind, msg.json);
           break;
         case "forwardKey": {
           const command = FORWARDED_COMMANDS[msg.command];
@@ -60,7 +72,9 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
 
     panel.onDidDispose(() => {
       changeSub.dispose();
+      configSub.dispose();
       messageSub.dispose();
+      sidecars.dispose();
     });
   }
 

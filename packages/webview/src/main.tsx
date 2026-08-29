@@ -17,3 +17,13 @@ new MutationObserver(syncTheme).observe(document.body, {
 });
 
 createRoot(document.getElementById("editor")!).render(<App />);
+
+// Debug/e2e handle: lets the Playwright suite drive and inspect the stores.
+import { useReviewCommentsStore } from "@/stores/reviewCommentsStore";
+import { useTraceabilityStore } from "@/stores/traceabilityStore";
+import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
+(window as unknown as Record<string, unknown>).__mdreqStores = {
+  review: useReviewCommentsStore,
+  traceability: useTraceabilityStore,
+  commentDrawer: useCommentDrawerStore,
+};

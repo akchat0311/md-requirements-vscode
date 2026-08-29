@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { PROTOCOL_VERSION, type HostMessage } from "./protocol";
+import { PROTOCOL_VERSION, type EditorConfig, type HostMessage } from "./protocol";
 import { applyEol, minimalDiff, toLf } from "./textSync";
 
 /**
@@ -31,13 +31,14 @@ export class DocumentSyncController {
     void this.webview.postMessage(message);
   }
 
-  sendInit(): void {
+  sendInit(config: EditorConfig): void {
     this.deliveredVersion = this.document.version;
     this.post({
       type: "init",
       protocol: PROTOCOL_VERSION,
       text: toLf(this.document.getText()),
       version: this.document.version,
+      config,
     });
   }
 

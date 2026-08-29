@@ -4,7 +4,9 @@ import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
 import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
 import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import { ensureKatex } from "@/editor/utils/katexLoader";
-import type { HostMessage, WebviewMessage } from "./protocol";
+import { useConfigStore } from "@/stores/configStore";
+import { initSidecars, onSidecarChanged } from "./sidecars";
+import type { EditorConfig, HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 
 declare function acquireVsCodeApi(): { postMessage(msg: WebviewMessage): void };
@@ -71,8 +73,27 @@ function applyExternal(text: string): void {
   }
 }
 
+function applyConfig(config: EditorConfig): void {
+  const store = useConfigStore.getState();
+  if (config.requirementPatternExample) {
+    store.setRequirementPattern(config.requirementPatternExample);
+  } else {
+    store.clearRequirementPattern();
+  }
+}
+
 function handleHostMessage(msg: HostMessage): void {
   if (!editor) return;
+  switch (msg.type) {
+    case "configChanged":
+      applyConfig(msg.config);
+      return;
+    case "sidecarChanged":
+      onSidecarChanged(msg.kind, msg.data);
+      return;
+    default:
+      break;
+  }
   switch (msg.type) {
     case "init": {
       if (msg.protocol !== PROTOCOL_VERSION) {
@@ -80,6 +101,7 @@ function handleHostMessage(msg: HostMessage): void {
           "Requirements Editor: extension and webview versions do not match. Reinstall the extension.";
         return;
       }
+      applyConfig(msg.config);
       version = msg.version;
       lastSyncedText = msg.text;
       inFlight = false;
@@ -132,6 +154,8 @@ export function initBridge(liveEditor: Editor): void {
   window.addEventListener("message", (event: MessageEvent<HostMessage>) =>
     handleHostMessage(event.data),
   );
+
+  initSidecars((msg) => vscode.postMessage(msg));
 
   window.addEventListener(
     "keydown",

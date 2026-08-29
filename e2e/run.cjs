@@ -68,7 +68,17 @@ async function openEditor(browser, port, markdown) {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__messages.some((m) => m.type === "ready"));
   await page.evaluate(
-    (md) => window.postMessage({ type: "init", protocol: 1, text: md, version: 1 }, "*"),
+    (md) =>
+      window.postMessage(
+        {
+          type: "init",
+          protocol: 2,
+          text: md,
+          version: 1,
+          config: { requirementPatternExample: "REQ_001" },
+        },
+        "*",
+      ),
     markdown,
   );
   await page.waitForSelector(".ProseMirror p");
@@ -291,6 +301,103 @@ function check(name, cond, detail) {
       finalText === NONCANON,
       JSON.stringify({ edits: edits.length, finalText }),
     ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 5: review-comment pipeline — sidecar data in, badge rendered,
+    // drawer opens on badge click, store mutation posts a sidecarEdit with
+    // the serialized .review.json body.
+    const REQDOC = [
+      "## REQ_001 The system shall respond within 2 seconds",
+      "",
+      "Body of the requirement.",
+      "",
+      "## REQ_002 The system shall log all requests",
+      "",
+      "More body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, REQDOC);
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          type: "sidecarChanged",
+          kind: "review",
+          data: {
+            _version: 1,
+            REQ_001: [
+              {
+                id: "c_1",
+                author: "Reviewer",
+                text: "Please quantify the load profile.",
+                createdAt: "2026-08-30T10:00:00Z",
+                status: "open",
+              },
+            ],
+          },
+        },
+        "*",
+      );
+    });
+    const badge = await page
+      .waitForSelector(".req-comment-badge--open", { timeout: 8000 })
+      .catch(() => null);
+    ok = check("open-comment badge renders on the requirement", badge !== null, "no badge") && ok;
+
+    if (badge) {
+      await badge.click();
+      const opened = await page
+        .waitForFunction(
+          () => window.__mdreqStores.commentDrawer.getState().reqId === "REQ_001",
+          null,
+          { timeout: 4000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      ok = check("badge click opens the comment drawer for REQ_001", opened, "drawer not open") && ok;
+      const drawerShowsComment = await page
+        .waitForFunction(
+          () => document.body.textContent.includes("Please quantify the load profile."),
+          null,
+          { timeout: 4000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      ok = check("drawer shows the loaded comment", drawerShowsComment, "comment text missing") && ok;
+    }
+
+    await page.evaluate(() => {
+      window.__mdreqStores.review
+        .getState()
+        .addComment("REQ_002", "Tester", "New comment from the editor.");
+    });
+    const wrote = await page
+      .waitForFunction(
+        () =>
+          window.__messages.some(
+            (m) => m.type === "sidecarEdit" && m.kind === "review" && m.json.includes("New comment from the editor."),
+          ),
+        null,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("store mutation persists via sidecarEdit", wrote, "no sidecarEdit message") && ok;
+    if (wrote) {
+      const json = await page.evaluate(
+        () => window.__messages.filter((m) => m.type === "sidecarEdit").pop().json,
+      );
+      const parsed = JSON.parse(json);
+      ok = check(
+        "sidecar body keeps the browser-app schema",
+        parsed._version === 1 &&
+          Array.isArray(parsed.REQ_001) &&
+          Array.isArray(parsed.REQ_002) &&
+          parsed.REQ_002[0].status === "open",
+        json.slice(0, 200),
+      ) && ok;
+    }
     await page.close();
   }
 
