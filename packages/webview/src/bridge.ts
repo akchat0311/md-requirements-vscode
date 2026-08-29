@@ -5,6 +5,7 @@ import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
 import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import { ensureKatex } from "@/editor/utils/katexLoader";
 import { useConfigStore } from "@/stores/configStore";
+import { useStatusConfigStore } from "@/stores/statusConfigStore";
 import { initSidecars, onSidecarChanged } from "./sidecars";
 import { buildCsv } from "./exports";
 import type { EditorConfig, HostMessage, WebviewMessage } from "./protocol";
@@ -103,6 +104,9 @@ function handleHostMessage(msg: HostMessage): void {
       vscode.postMessage({ type: "exportResult", kind: msg.kind, ...result });
       return;
     }
+    case "showDashboard":
+      window.dispatchEvent(new CustomEvent("mdreq:showDashboard"));
+      return;
     default:
       break;
   }
@@ -163,12 +167,18 @@ function handleHostMessage(msg: HostMessage): void {
 export function initBridge(liveEditor: Editor): void {
   if (editor) return; // React StrictMode double-invoke guard
   editor = liveEditor;
+  (window as unknown as Record<string, unknown>).__mdreqEditor = liveEditor;
 
   window.addEventListener("message", (event: MessageEvent<HostMessage>) =>
     handleHostMessage(event.data),
   );
 
   initSidecars((msg) => vscode.postMessage(msg));
+
+  // Load requirement statuses (fetch of the config JSON fails inside the
+  // webview CSP; the service falls back to its built-in default set — the
+  // store must still be populated for the dashboard/status UI).
+  void useStatusConfigStore.getState().load();
 
   window.addEventListener(
     "keydown",

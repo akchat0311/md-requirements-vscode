@@ -1,14 +1,21 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "@/editor/extensions";
 import { SoftBreak } from "@/editor/extensions/SoftBreak";
 import { EditorToolbar } from "@/editor/Toolbar";
+import { EditorContext } from "@/editor/EditorContext";
 import { CommentDrawer } from "@/layout/CommentDrawer";
 import { TraceabilityDrawer } from "@/layout/TraceabilityDrawer";
+import { Dashboard } from "@/layout/Dashboard";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
 import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
+import { useConfigStore } from "@/stores/configStore";
+import { useValidationStore } from "@/stores/validationStore";
+import { useDocumentValidation } from "@/editor/utils/useDocumentValidation";
 import type { RequirementRecord } from "@/editor/utils/requirementOps";
 import { bridgeHandleUpdate, initBridge } from "./bridge";
+
+const noop = (): void => {};
 
 export function App() {
   // Full product extension set. undoRedo off: the TextDocument owns the
@@ -35,6 +42,43 @@ export function App() {
     if (editor) initBridge(editor);
   }, [editor]);
 
+  // ── View switching: editor ⟷ dashboard ────────────────────────────────────
+  // The dashboard renders in the SAME webview (deviation from architecture
+  // §7.2's separate panel): its tabs derive live data from the editor via
+  // EditorContext, so a second webview would need its own parsed document.
+  // The editor stays mounted (hidden) while the dashboard is shown.
+  const [view, setView] = useState<"editor" | "dashboard">("editor");
+  useEffect(() => {
+    const show = () => setView("dashboard");
+    window.addEventListener("mdreq:showDashboard", show);
+    return () => window.removeEventListener("mdreq:showDashboard", show);
+  }, []);
+
+  const navigateToEditor = useCallback(
+    (pmPos: number) => {
+      setView("editor");
+      requestAnimationFrame(() => {
+        if (!editor) return;
+        const max = editor.state.doc.content.size;
+        editor
+          .chain()
+          .focus()
+          .setTextSelection(Math.max(1, Math.min(pmPos, max - 1)))
+          .scrollIntoView()
+          .run();
+      });
+    },
+    [editor],
+  );
+
+  // ── Document validation (feeds the dashboard's Quality tab) ───────────────
+  const requirementPattern = useConfigStore((s) => s.requirementPattern);
+  const setValidationIssues = useValidationStore((s) => s.setIssues);
+  const validationIssues = useDocumentValidation(editor, requirementPattern);
+  useEffect(() => {
+    setValidationIssues(validationIssues);
+  }, [validationIssues, setValidationIssues]);
+
   // ── Contextual right panels (browser-app pattern: one at a time) ──────────
   const drawerReqId = useCommentDrawerStore((s) => s.reqId);
   const drawerStatus = useCommentDrawerStore((s) => s.status);
@@ -53,25 +97,64 @@ export function App() {
   if (!editor) return null;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <div className="min-w-0 flex-1 overflow-y-auto">
-        <div id="editor-scroll" className="w-full py-8">
-          <EditorToolbar editor={editor} />
-          <div className="doc-page">
-            <EditorContent editor={editor} />
+    <EditorContext.Provider value={editor}>
+      <div className="flex h-screen w-full overflow-hidden" data-view={view}>
+        <div className={view === "editor" ? "flex min-w-0 flex-1" : "hidden"}>
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <div id="editor-scroll" className="w-full py-8">
+              <EditorToolbar editor={editor} />
+              <div className="doc-page">
+                <EditorContent editor={editor} />
+              </div>
+            </div>
           </div>
+          {drawerRecord && (
+            <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
+              <CommentDrawer record={drawerRecord} onClose={closeDrawer} />
+            </div>
+          )}
+          {!drawerRecord && tracePanelReqId && (
+            <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
+              <TraceabilityDrawer reqId={tracePanelReqId} onClose={closeTracePanel} />
+            </div>
+          )}
+          <button
+            type="button"
+            id="open-dashboard"
+            className="fixed right-4 top-3 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
+            onClick={() => setView("dashboard")}
+          >
+            Dashboard
+          </button>
         </div>
+
+        {view === "dashboard" && (
+          <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-page-bg)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-2">
+              <span className="text-sm font-semibold text-[var(--color-text)]">Dashboard</span>
+              <button
+                type="button"
+                id="back-to-editor"
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
+                onClick={() => setView("editor")}
+              >
+                ← Editor
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <Dashboard
+                onNavigateToEditor={navigateToEditor}
+                onLoadReview={noop}
+                onSaveReview={noop}
+                onSaveReviewAs={noop}
+                onLoadTraceability={noop}
+                onSaveTraceability={noop}
+                onSaveTraceabilityAs={noop}
+              />
+            </div>
+          </div>
+        )}
       </div>
-      {drawerRecord && (
-        <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
-          <CommentDrawer record={drawerRecord} onClose={closeDrawer} />
-        </div>
-      )}
-      {!drawerRecord && tracePanelReqId && (
-        <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
-          <TraceabilityDrawer reqId={tracePanelReqId} onClose={closeTracePanel} />
-        </div>
-      )}
-    </div>
+    </EditorContext.Provider>
   );
 }

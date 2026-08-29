@@ -43,7 +43,9 @@ export type HostMessage =
   /** Sidecar file content (parsed JSON), or null when the file is absent. */
   | { type: "sidecarChanged"; kind: SidecarKind; data: unknown }
   /** Ask the webview to build a CSV export from its live state. */
-  | { type: "requestExport"; kind: ExportKind };
+  | { type: "requestExport"; kind: ExportKind }
+  /** Switch the webview to the dashboard view. */
+  | { type: "showDashboard" };
 
 /** Webview → host. `markdown` is LF-normalized (host restores document EOL). */
 export type WebviewMessage =

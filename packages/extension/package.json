@@ -1,8 +1,8 @@
 {
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
-  "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
-  "version": "0.1.9",
+  "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
+  "version": "0.1.10",
   "private": true,
   "type": "commonjs",
   "publisher": "akchat",
@@ -16,6 +16,10 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "mdreq.openDashboard",
+        "title": "Requirements: Open Dashboard"
+      },
       {
         "command": "mdreq.exportReviewCsv",
         "title": "Requirements: Export Review Comments as CSV"
@@ -31,7 +35,7 @@
         "mdreq.requirementPattern": {
           "type": "string",
           "default": "REQ_001",
-          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges — e.g. `REQ_001`, `SRS-0001`. Ignored when `#mdreq.requirementPatternRegex#` is set. Leave both empty to disable requirement detection."
+          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges \u2014 e.g. `REQ_001`, `SRS-0001`. Ignored when `#mdreq.requirementPatternRegex#` is set. Leave both empty to disable requirement detection."
         },
         "mdreq.requirementPatternRegex": {
           "type": "string",

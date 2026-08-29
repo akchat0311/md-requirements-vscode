@@ -134,6 +134,8 @@ function check(name, cond, detail) {
   const server = await serve();
   const port = server.address().port;
   const browser = await chromium.launch();
+  // page console passthrough for BUTTONS debug
+
   let ok = true;
 
   {
@@ -602,6 +604,88 @@ function check(name, cond, detail) {
       traceCsv !== null && !traceCsv.empty && traceCsv.csv.includes("REQ_001") && traceCsv.csv.includes("TC_100"),
       JSON.stringify(traceCsv).slice(0, 150),
     ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 9: dashboard view — opens on host command, tabs render from
+    // live editor state, row navigation returns to the editor.
+    const DDOC = [
+      "## REQ_001 The system shall respond within 2 seconds",
+      "",
+      "Body.",
+      "",
+      "## REQ_002 The system shall log all requests",
+      "",
+      "Body two.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, DDOC);
+    await page.evaluate(() => window.postMessage({ type: "showDashboard" }, "*"));
+    const dashOpen = await page
+      .waitForSelector('[data-view="dashboard"]', { timeout: 6000 })
+      .then(() => true)
+      .catch(() => false);
+    ok = check("dashboard opens on host command", dashOpen, "no dashboard view") && ok;
+
+    const tabsPresent = await page.evaluate(() => {
+      const t = document.body.textContent;
+      return t.includes("Overview") && t.includes("Reviews") && t.includes("Traceability") && t.includes("Quality");
+    });
+    ok = check("dashboard tabs render", tabsPresent, "tab labels missing") && ok;
+
+    const clickedTab = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")].find(
+        (b) => b.textContent.trim() === "Requirements",
+      );
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    const reqListed = clickedTab
+      ? await page
+          .waitForFunction(() => document.body.textContent.includes("REQ_002"), null, { timeout: 4000 })
+          .then(() => true)
+          .catch(() => false)
+      : false;
+    ok = check("requirements tab lists document requirements", reqListed, "REQ_002 not listed") && ok;
+
+    // The requirement index debounces ~300ms after the tab mounts — wait for
+    // the actual row cell rather than sampling immediately.
+    await page
+      .waitForFunction(
+        () => [...document.querySelectorAll("td")].some((el) => el.textContent.trim() === "REQ_002"),
+        null,
+        { timeout: 5000 },
+      )
+      .catch(() => {});
+    const navigated = await page.evaluate(() => {
+      const target = [...document.querySelectorAll("td")].find(
+        (el) => el.textContent.trim() === "REQ_002",
+      );
+      if (!target) return false;
+      target.click();
+      return true;
+    });
+    const backInEditor = navigated
+      ? await page
+          .waitForSelector('[data-view="editor"]', { timeout: 4000 })
+          .then(() => true)
+          .catch(() => false)
+      : false;
+    if (!backInEditor) {
+      console.error(
+        "      diag:",
+        await page.evaluate(() => ({
+          navigatedClicked: undefined,
+          tds: [...document.querySelectorAll("td")].map((t) => t.textContent.trim()).slice(0, 12),
+          dashText: document.querySelector('[data-testid="requirements-tab"]')?.innerText?.slice(0, 300) ?? "NO requirements-tab NODE",
+          view: document.querySelector("[data-view]")?.getAttribute("data-view"),
+          activeTab: [...document.querySelectorAll("button")].filter((b) => b.textContent.trim() === "Requirements").length,
+        })),
+      );
+    }
+    ok = check("clicking a requirement navigates back to the editor", backInEditor, `navigated=${navigated}`) && ok;
     await page.close();
   }
 

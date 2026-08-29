@@ -23,6 +23,13 @@ body {
   padding: 0 28px 140px;
 }
 
+/* Sidecar Load/Save file sections are a browser-app workflow; in VS Code
+   sidecars auto-load and auto-save, so those controls would mislead. */
+[data-testid="review-file-section"],
+[data-testid="traceability-file-section"] {
+  display: none;
+}
+
 /* Build stamp: settles "which webview am I running?" at a glance. */
 #build-stamp {
   position: fixed;

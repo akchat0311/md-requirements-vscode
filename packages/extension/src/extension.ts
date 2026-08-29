@@ -20,6 +20,16 @@ export function activate(context: vscode.ExtensionContext): void {
     ReqEditorProvider.register(context),
     registerExportCommand("mdreq.exportReviewCsv", "reviewCsv"),
     registerExportCommand("mdreq.exportTraceabilityCsv", "traceabilityCsv"),
+    vscode.commands.registerCommand("mdreq.openDashboard", () => {
+      const active = getActiveEditor();
+      if (!active) {
+        void vscode.window.showInformationMessage(
+          "Open a document with the Requirements Editor first (right-click a .md file → Open With…).",
+        );
+        return;
+      }
+      void active.webview.postMessage({ type: "showDashboard" });
+    }),
   );
 }
 

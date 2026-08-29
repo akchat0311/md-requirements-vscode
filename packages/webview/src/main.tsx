@@ -23,9 +23,22 @@ import { useReviewCommentsStore } from "@/stores/reviewCommentsStore";
 import { useTraceabilityStore } from "@/stores/traceabilityStore";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
 import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
+import { useConfigStore } from "@/stores/configStore";
+import { useStatusConfigStore } from "@/stores/statusConfigStore";
+import { deriveOutline, flattenOutline } from "@/editor/utils/deriveOutline";
+import { compileRequirementPattern, matchRequirementId, buildRequirementIndex } from "@/editor/utils/requirementOps";
 (window as unknown as Record<string, unknown>).__mdreqStores = {
   review: useReviewCommentsStore,
   traceability: useTraceabilityStore,
   commentDrawer: useCommentDrawerStore,
   traceabilityPanel: useTraceabilityPanelStore,
+  config: useConfigStore,
+  statusConfig: useStatusConfigStore,
+};
+(window as unknown as Record<string, unknown>).__mdreqDebug = {
+  deriveOutline,
+  flattenOutline,
+  compileRequirementPattern,
+  matchRequirementId,
+  buildRequirementIndex,
 };
