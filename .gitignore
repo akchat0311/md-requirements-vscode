@@ -1,0 +1,7 @@
+node_modules/
+dist/
+packages/extension/media/
+*.tsbuildinfo
+.DS_Store
+*.vsix
+coverage/

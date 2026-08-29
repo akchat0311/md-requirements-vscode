@@ -1,0 +1,36 @@
+{
+  "name": "md-requirements-editor",
+  "displayName": "Markdown Requirements Editor",
+  "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "publisher": "akchat",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "mdreq.editor",
+        "displayName": "Requirements Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ],
+        "priority": "option"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.mts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

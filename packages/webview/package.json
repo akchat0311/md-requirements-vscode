@@ -1,0 +1,11 @@
+{
+  "name": "@mdreq/webview",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Webview bundle for the requirements editor (TipTap + engine + host bridge)",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

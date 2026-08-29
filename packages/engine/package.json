@@ -1,0 +1,11 @@
+{
+  "name": "@mdreq/engine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Markdown round-trip engine, TipTap extensions, and validation rules (copied from MD_Editor; chassis modules inside are quarantined and pruned as later phases replace them)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

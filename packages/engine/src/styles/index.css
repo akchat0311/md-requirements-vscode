@@ -1,0 +1,816 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-page-bg: #f4f5f7;
+  --color-paper: #ffffff;
+  --color-text: #1f2328;
+  --color-muted: #6b7280;
+  --color-border: #e3e5e8;
+  --color-accent: #2563eb;
+}
+
+.dark {
+  --color-page-bg: #111317;
+  --color-paper: #1b1d22;
+  --color-text: #e6e8eb;
+  --color-muted: #9aa1ad;
+  --color-border: #2c2f36;
+  --color-accent: #5b8def;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-page-bg);
+  color: var(--color-text);
+}
+
+/* A4-like document page */
+.doc-page {
+  width: 100%;
+  min-height: 1056px; /* ~11in at 96dpi */
+  background-color: var(--color-paper);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 40px 56px;
+  border-radius: 2px;
+}
+
+.dark .doc-page {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Mermaid diagram blocks ──────────────────────────────────────────────── */
+
+.mermaid-block {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0.75em 0;
+}
+
+.mermaid-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 4px 10px;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: var(--color-muted);
+  user-select: none;
+}
+
+.dark .mermaid-label {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.mermaid-hint {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Source-edit mode */
+.mermaid-source pre {
+  margin: 0;
+  border-radius: 0;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 0.9em 1.1em;
+  overflow-x: auto;
+  min-height: 2.5em;
+}
+
+.mermaid-source pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+  font-family: "SF Mono", "Fira Code", monospace;
+  display: block;
+  white-space: pre;
+}
+
+/* Preview mode */
+.mermaid-preview {
+  cursor: pointer;
+}
+
+.mermaid-preview:hover {
+  border-color: var(--color-accent);
+}
+
+.mermaid-svg-wrap {
+  padding: 1.25em;
+  display: flex;
+  justify-content: center;
+  background-color: var(--color-paper);
+}
+
+.mermaid-svg-wrap svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-empty {
+  padding: 2em;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.mermaid-error {
+  padding: 0.75em 1em;
+  background-color: rgba(239, 68, 68, 0.06);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.mermaid-error-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(239, 68, 68);
+  margin-bottom: 4px;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.mermaid-error-msg {
+  margin: 0;
+  font-size: 11px;
+  color: rgb(239, 68, 68);
+  white-space: pre-wrap;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Hidden contentDOM — keeps PM's contentDOM in the DOM tree without rendering */
+.mermaid-content-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Highlight, superscript, subscript ──────────────────────────────────── */
+
+.ProseMirror mark {
+  background-color: rgba(253, 224, 71, 0.55);
+  border-radius: 2px;
+  padding: 0 1px;
+  color: inherit;
+}
+
+.dark .ProseMirror mark {
+  background-color: rgba(202, 138, 4, 0.45);
+}
+
+.ProseMirror sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  top: -0.5em;
+}
+
+.ProseMirror sub {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  bottom: -0.25em;
+}
+
+/* ── Inline math ─────────────────────────────────────────────────────────── */
+
+/* Hidden source text in preview mode */
+.math-source-hidden {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 0;
+  line-height: 0;
+}
+
+/* Source text shown in edit mode */
+.math-source-editing {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-radius: 3px;
+  padding: 0 2px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.88em;
+  color: var(--color-accent);
+  outline: 1px solid rgba(99, 102, 241, 0.3);
+  outline-offset: 1px;
+}
+
+/* Rendered KaTeX widget */
+.math-inline-widget {
+  display: inline-block;
+  vertical-align: middle;
+  cursor: text;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition: background-color 0.1s;
+}
+
+.math-inline-widget:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.dark .math-inline-widget:hover {
+  background-color: rgba(91, 141, 239, 0.12);
+}
+
+/* Wide KaTeX scrolls within its widget rather than overflowing the cell.
+   max-width:100% on this inline-block resolves against the <p> inside <td>,
+   which has a definite block width even in table-layout:fixed — confirmed in
+   both Chromium and headless WebKit.  overflow-y:hidden suppresses the implicit
+   vertical scrollbar CSS forces when overflow-x is non-visible. */
+.ProseMirror td .math-inline-widget,
+.ProseMirror th .math-inline-widget {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Loading placeholder (KaTeX not yet ready) */
+.math-inline-loading {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.88em;
+  color: var(--color-muted);
+  background-color: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* KaTeX error shown inline */
+.math-error-inline {
+  color: rgb(239, 68, 68);
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.85em;
+}
+
+/* ── Block math ──────────────────────────────────────────────────────────── */
+
+.math-block-preview {
+  cursor: pointer;
+}
+
+.math-block-preview:hover {
+  border-color: var(--color-accent);
+}
+
+.math-block-rendered {
+  padding: 1.5em 1.25em;
+  background-color: var(--color-paper);
+  overflow-x: auto;
+}
+
+/* Center when fits; auto-margins collapse to 0 on overflow so the left edge is always visible */
+.math-block-rendered .katex-display {
+  width: fit-content;
+  margin: 0 auto;
+}
+
+/* Reduce display math font size for engineering documents (KaTeX default is 1.21em) */
+.math-block-rendered .katex {
+  font-size: 1.05em;
+}
+
+/* ── Find/Replace match highlighting ─────────────────────────────────────── */
+.find-match {
+  background-color: rgba(253, 224, 71, 0.45);
+  border-radius: 2px;
+}
+
+.dark .find-match {
+  background-color: rgba(202, 138, 4, 0.45);
+}
+
+.find-match-active {
+  background-color: rgba(249, 115, 22, 0.55);
+  outline: 1.5px solid rgba(249, 115, 22, 0.9);
+  outline-offset: 0;
+  border-radius: 2px;
+}
+
+.dark .find-match-active {
+  background-color: rgba(234, 88, 12, 0.55);
+  outline-color: rgba(251, 146, 60, 0.9);
+}
+
+/* ProseMirror editor typography */
+.ProseMirror {
+  outline: none;
+  min-height: 600px;
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+.ProseMirror h1 {
+  font-size: 1.9em;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.4em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.3em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 1.2em;
+}
+
+.ProseMirror h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.ProseMirror h5 {
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.ProseMirror h6 {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.ProseMirror p.is-empty:first-child::before,
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1em;
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.ProseMirror code {
+  background-color: rgba(135, 131, 120, 0.15);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.ProseMirror pre {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 6px;
+  padding: 0.9em 1.1em;
+  overflow-x: auto;
+}
+
+/* Raw inline HTML atom — shows tag source literally, never styled as live HTML */
+.ProseMirror span.raw-html-inline {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.8em;
+  color: var(--color-muted);
+  background: color-mix(in srgb, var(--color-border) 40%, transparent);
+  border-radius: 3px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+/* Link definition block — mirrors raw-html-block visual treatment */
+.ProseMirror div.link-definition {
+  background-color: transparent;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8em;
+  padding: 0.25em 0.5em;
+  user-select: none;
+}
+
+/* Raw HTML passthrough block — distinct from code blocks */
+.ProseMirror pre.raw-html-block {
+  background-color: transparent;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+  font-size: 0.8em;
+  user-select: none;
+}
+
+.ProseMirror pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+.ProseMirror ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+
+.ProseMirror ul ul {
+  list-style: circle;
+}
+
+.ProseMirror ul ul ul {
+  list-style: square;
+}
+
+.ProseMirror ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.2em;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.25em;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  vertical-align: top;
+  position: relative;
+}
+
+.ProseMirror table th {
+  background-color: rgba(0, 0, 0, 0.03);
+  font-weight: 600;
+  text-align: left;
+}
+
+.dark .ProseMirror table th {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+
+.ProseMirror .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-accent);
+}
+
+.ProseMirror a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Link navigation tooltip ─────────────────────────────────────────────── */
+
+.link-nav-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(15, 15, 20, 0.88);
+  color: #e6e8eb;
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 5px 9px;
+  border-radius: 5px;
+  white-space: pre;
+  pointer-events: none;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  font-family: ui-monospace, monospace;
+}
+
+::selection {
+  background-color: rgba(37, 99, 235, 0.2);
+}
+
+/* ── Requirement status dropdown widget ─────────────────────────────────── */
+
+/* Hide the raw [Draft] text in the document */
+.req-status-source-hidden {
+  display: none;
+}
+
+/* Subtle highlight when cursor is manually editing inside [Draft] */
+.req-status-editing {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+/* Widget container — sits inline beside the heading text */
+.req-status-widget {
+  display: inline-flex;
+  position: relative;
+  user-select: none;
+  vertical-align: baseline;
+  margin-left: 0.4em;
+}
+
+/* The badge/trigger button */
+.req-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.67em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: filter 0.1s;
+}
+
+.req-status-btn:hover {
+  filter: brightness(0.92);
+}
+
+.req-status-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Missing-status placeholder */
+.req-status-btn--missing {
+  background: var(--color-border) !important;
+  color: var(--color-muted) !important;
+  font-style: italic;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.req-status-caret {
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Dropdown menu */
+.req-status-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  min-width: 120px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  font-size: 0.72em;
+}
+
+.dark .req-status-menu {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.req-status-option {
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-weight: 500;
+  padding: 5px 8px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.req-status-option:hover,
+.req-status-option--active {
+  background: var(--color-border);
+}
+
+/* ── Review comment badge (inline, after status dropdown) ────────────────── */
+
+.req-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0.45em;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  font-size: 0.67em;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  border: none;
+  white-space: nowrap;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+
+/* Open comments — red, urgent */
+.req-comment-badge--open {
+  background: rgba(220, 38, 38, 0.10);
+  color: #dc2626;
+}
+.req-comment-badge--open:hover { background: rgba(220, 38, 38, 0.18); }
+.dark .req-comment-badge--open { color: #f87171; background: rgba(220, 38, 38, 0.12); }
+
+/* Responded — amber, awaiting closure */
+.req-comment-badge--pending {
+  background: rgba(217, 119, 6, 0.10);
+  color: #d97706;
+}
+.req-comment-badge--pending:hover { background: rgba(217, 119, 6, 0.18); }
+.dark .req-comment-badge--pending { color: #fbbf24; background: rgba(217, 119, 6, 0.12); }
+
+/* All closed — green, resolved */
+.req-comment-badge--clear {
+  background: rgba(22, 163, 74, 0.10);
+  color: #16a34a;
+}
+.req-comment-badge--clear:hover { background: rgba(22, 163, 74, 0.18); }
+.dark .req-comment-badge--clear { color: #4ade80; background: rgba(22, 163, 74, 0.12); }
+
+/* Dashed outline when no comments exist — visually distinct but subtle */
+.req-comment-badge--empty {
+  background: transparent;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+}
+
+.req-comment-badge--empty:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.dark .req-comment-badge--empty:hover {
+  background: rgba(91, 141, 239, 0.07);
+}
+
+.req-comment-badge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* ── Traceability badge (inline, after the review badge) ─────────────────── */
+
+.req-trace-badge-wrap {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.req-trace-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0.45em;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  font-size: 0.67em;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  border: none;
+  white-space: nowrap;
+  background: rgba(13, 148, 136, 0.10);
+  color: #0d9488;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+.req-trace-badge:hover { background: rgba(13, 148, 136, 0.18); }
+.dark .req-trace-badge { color: #2dd4bf; background: rgba(13, 148, 136, 0.14); }
+
+/* Dashed outline when no test cases are linked — mirrors the empty review badge */
+.req-trace-badge--empty {
+  background: transparent;
+  color: var(--color-muted);
+  border: 1px dashed var(--color-border);
+}
+.req-trace-badge--empty:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: rgba(37, 99, 235, 0.05);
+}
+.dark .req-trace-badge--empty:hover { background: rgba(91, 141, 239, 0.07); }
+
+.req-trace-badge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Hover tooltip: linked test case IDs + titles */
+.req-trace-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  margin-top: 4px;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-paper);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+}
+.req-trace-badge-wrap:hover .req-trace-tooltip,
+.req-trace-badge:focus-visible + .req-trace-tooltip {
+  display: block;
+}
+
+.req-trace-tooltip-header {
+  margin-bottom: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.req-trace-tooltip-row {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-top: 1px solid var(--color-border);
+}
+.req-trace-tooltip-header + .req-trace-tooltip-row { border-top: none; }
+
+.req-trace-tooltip-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.req-trace-tooltip-title { color: var(--color-muted); }
+
+.req-trace-tooltip-empty { color: var(--color-muted); }
