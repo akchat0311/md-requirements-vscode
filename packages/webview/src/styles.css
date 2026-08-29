@@ -18,6 +18,19 @@ body {
   padding: 0 28px 140px;
 }
 
+/* Build stamp: settles "which webview am I running?" at a glance. */
+#build-stamp {
+  position: fixed;
+  right: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  color: var(--color-muted);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 50;
+}
+
 .ProseMirror {
   outline: none;
   min-height: 60vh;

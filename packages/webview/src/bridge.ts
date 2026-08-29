@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
 import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
 import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
+import { ensureKatex } from "@/editor/utils/katexLoader";
 import type { HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 
@@ -79,9 +80,18 @@ function handleHostMessage(msg: HostMessage): void {
       lastSyncedText = msg.text;
       inFlight = false;
       pendingDirty = false;
-      applyExternal(msg.text);
-      editor.setEditable(true);
-      editor.commands.focus("start");
+      // Wait for the (local, lazy) KaTeX chunk before first render: math
+      // widgets built before it loads show a plain-source placeholder and
+      // only refresh on the next transaction.
+      void ensureKatex()
+        .catch(() => {})
+        .then(() => {
+          const e = editor;
+          if (!e) return;
+          applyExternal(msg.text);
+          e.setEditable(true);
+          e.commands.focus("start");
+        });
       break;
     }
     case "docChanged": {

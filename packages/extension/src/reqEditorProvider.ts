@@ -65,6 +65,8 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   private buildHtml(webview: vscode.Webview): string {
+    const version: string =
+      (this.context.extension.packageJSON as { version?: string }).version ?? "dev";
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "media", "editor.js"),
     );
@@ -86,9 +88,11 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${styleUri}">
   <title>Requirements Editor</title>
+  <meta name="mdreq-version" content="${version}">
 </head>
 <body>
   <div id="editor"></div>
+  <div id="build-stamp">v${version}</div>
   <script type="module" src="${scriptUri}"></script>
 </body>
 </html>`;
