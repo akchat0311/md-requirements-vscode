@@ -10,7 +10,9 @@ Try selecting text here to get the bubble toolbar: **bold**, *italic*,
 `inline code`, ==highlighted==, ~subscript~ like H~2~O, ^superscript^ like
 x^2^, <u>underlined</u>, ~~strikethrough~~, and a [link to the repo](https://github.com/akchat0311/md-requirements-vscode).
 
-Raw inline HTML must survive round-trips: press <kbd>Cmd</kbd>+<kbd>S</kbd> to save.
+Raw inline HTML shows as literal source chips BY DESIGN (fidelity-first —
+the tags are preserved byte-exact on save, never interpreted): press
+<kbd>Cmd</kbd>+<kbd>S</kbd> to save.
 
 A hard break (backslash) follows this line\
 and this line continues after it.
@@ -80,6 +82,9 @@ these lines changed:
 - [x] completed task item
 
 ## 7. Table
+
+(The `<sub>` tags in cells also show as literal chips by design — edit the
+table freely; the tags must survive the save unchanged.)
 
 | Requirement | Formula | Status |
 | - | - | - |
