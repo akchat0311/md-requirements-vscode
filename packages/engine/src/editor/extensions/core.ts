@@ -4,6 +4,7 @@ import Image from "@tiptap/extension-image";
 import { TableKit } from "@tiptap/extension-table";
 import type { Extensions } from "@tiptap/core";
 import { RawHtmlBlock } from "./RawHtmlBlock";
+import { SoftBreak } from "./SoftBreak";
 import { RawHtmlInline } from "./RawHtmlInline";
 import { Callout } from "./Callout";
 import { CustomKeymap } from "./CustomKeymap";
@@ -62,6 +63,7 @@ export function createCoreExtensions(): Extensions {
     Image.configure({ inline: false }),
     RawHtmlBlock,
     RawHtmlInline,
+    SoftBreak,
     Callout,
     CustomKeymap,
     LinkDefinition,

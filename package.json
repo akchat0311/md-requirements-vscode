@@ -10,7 +10,8 @@
   "scripts": {
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "e2e": "node e2e/run.cjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.6",
@@ -51,6 +52,7 @@
     "@types/vscode": "^1.90.0",
     "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^25.0.1",
+    "playwright": "^1.62.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"

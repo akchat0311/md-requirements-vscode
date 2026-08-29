@@ -2,6 +2,7 @@ import { Editor } from "@tiptap/core";
 import { createCoreExtensions } from "@/editor/extensions/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
 import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
+import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
 import type { HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 import "./editor.css";
@@ -51,7 +52,7 @@ function sendEdit(): void {
   }
   // D9: serialize canonically, then re-emit every unchanged block verbatim
   // from the current document text — untouched lines never get rewritten.
-  const canonical = serializeDocToMarkdown(editor.getJSON() as never);
+  const canonical = serializeDocToMarkdown(collapseSoftBreaks(editor.getJSON() as never) as never);
   const markdown = mergePreservingUnchangedBlocks(lastSyncedText, canonical);
   if (markdown === lastSyncedText) return;
   inFlight = true;
@@ -63,7 +64,7 @@ function applyExternal(text: string): void {
   applyingExternal = true;
   try {
     const selection = editor.state.selection.from;
-    editor.commands.setContent(parseMarkdownToDoc(text) as never);
+    editor.commands.setContent(expandSoftBreaks(parseMarkdownToDoc(text)) as never);
     // Re-anchor: clamp the previous cursor into the new document. Exact
     // diff-based mapping is a refinement tracked for Phase 1.
     const max = editor.state.doc.content.size;

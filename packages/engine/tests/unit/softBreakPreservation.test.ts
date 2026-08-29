@@ -2,44 +2,77 @@ import { describe, it, expect } from "vitest";
 import { Editor } from "@tiptap/core";
 import { createCoreExtensions } from "@/editor/extensions/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
+import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
+import corpus from "../fixtures/corpus.md?raw";
+import type { PMNode } from "@/markdown/types";
 
 /**
- * Soft line breaks (plain \n inside a paragraph — "lazy wrapping") must
- * survive the live-editor pipeline as \n inside text nodes, never as
- * hardBreak nodes (which serialize as trailing backslashes).
+ * Soft line breaks (plain \n inside a paragraph — "lazy wrapping").
  *
- * The schema-level guarantee lives here; the DOM-level guarantee is the
- * mandatory `white-space: pre-wrap` on .ProseMirror in the webview CSS —
- * without it, Chromium's contentEditable converts \n to <br> during editing
- * (found in the first real-world edit test, 2026-08-29).
+ * In the editor they must exist as explicit softBreak nodes, NEVER as raw
+ * \n inside text nodes: Chromium's contentEditable rewrites raw newlines
+ * into <br> during ordinary edits elsewhere in the paragraph, and the DOM
+ * re-read maps those to hardBreak (serialized as trailing backslashes).
+ * Confirmed in a real-Chromium Playwright repro, 2026-08-30. The webview
+ * therefore expands \n → softBreak after parsing and collapses back before
+ * serializing; these tests pin that round trip.
  */
-describe("soft break preservation through the live editor", () => {
-  const md = "first line of paragraph\nsecond line wraps softly\nthird line ends here\n";
+describe("soft break handling through the live editor", () => {
+  const md =
+    "Wrapped paragraph with `code` inline; the proven\nround-trip engine runs here; a layer owns all\nplatform integration.\n";
 
-  it("keeps soft breaks as text newlines in the live PM doc", () => {
+  function liveRoundTrip(markdown: string): { serialized: string; kinds: string[] } {
     const editor = new Editor({
       element: document.createElement("div"),
       extensions: createCoreExtensions(),
-      content: parseMarkdownToDoc(md),
+      content: expandSoftBreaks(parseMarkdownToDoc(markdown)),
+    });
+    const json = editor.getJSON() as PMNode;
+    const kinds: string[] = [];
+    const walk = (n: PMNode): void => {
+      kinds.push(n.type);
+      for (const c of n.content ?? []) walk(c);
+    };
+    walk(json);
+    const serialized = serializeDocToMarkdown(collapseSoftBreaks(json));
+    editor.destroy();
+    return { serialized, kinds };
+  }
+
+  it("represents soft breaks as softBreak nodes, no raw \\n in text", () => {
+    const editor = new Editor({
+      element: document.createElement("div"),
+      extensions: createCoreExtensions(),
+      content: expandSoftBreaks(parseMarkdownToDoc(md)),
     });
     const para = editor.getJSON().content?.[0];
-    const kinds = (para?.content ?? []).map((n: { type?: string }) => n.type);
-    expect(kinds).not.toContain("hardBreak");
-    expect(serializeDocToMarkdown(editor.getJSON() as never)).toBe(md);
+    const types = (para?.content ?? []).map((n: { type?: string }) => n.type);
+    expect(types).toContain("softBreak");
+    expect(types).not.toContain("hardBreak");
+    for (const n of para?.content ?? []) {
+      if (n.type === "text") expect(n.text).not.toContain("\n");
+    }
     editor.destroy();
   });
 
-  it("hard breaks (backslash) still round-trip as hardBreak nodes", () => {
+  it("round-trips soft-wrapped paragraphs byte-exact through the live editor", () => {
+    expect(liveRoundTrip(md).serialized).toBe(md);
+  });
+
+  it("keeps hard breaks (backslash) as hardBreak nodes", () => {
     const hard = "line one\\\nline two\n";
-    const editor = new Editor({
-      element: document.createElement("div"),
-      extensions: createCoreExtensions(),
-      content: parseMarkdownToDoc(hard),
-    });
-    const para = editor.getJSON().content?.[0];
-    const kinds = (para?.content ?? []).map((n: { type?: string }) => n.type);
+    const { serialized, kinds } = liveRoundTrip(hard);
     expect(kinds).toContain("hardBreak");
-    expect(serializeDocToMarkdown(editor.getJSON() as never)).toBe(hard);
-    editor.destroy();
+    expect(kinds).not.toContain("softBreak");
+    expect(serialized).toBe(hard);
+  });
+
+  it("round-trips the corpus byte-exact with soft-break expansion active", () => {
+    expect(liveRoundTrip(corpus).serialized).toBe(corpus);
+  });
+
+  it("expand/collapse preserves marks across a wrap inside bold", () => {
+    const bold = "before **bold start\nbold end** after\n";
+    expect(liveRoundTrip(bold).serialized).toBe(bold);
   });
 });
