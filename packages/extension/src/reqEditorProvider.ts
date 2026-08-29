@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { DocumentSyncController } from "./documentSync";
 import { SidecarService, readEditorConfig } from "./sidecars";
+import { publishDiagnostics, clearDiagnostics } from "./diagnostics";
 import type { ExportKind, WebviewMessage } from "./protocol";
 
 /** The most recently focused requirements editor (for palette commands). */
@@ -99,6 +100,9 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
             });
           break;
         }
+        case "diagnostics":
+          publishDiagnostics(document, msg.issues);
+          break;
         case "forwardKey": {
           const command = FORWARDED_COMMANDS[msg.command];
           if (command) void vscode.commands.executeCommand(command);
@@ -108,6 +112,7 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     panel.onDidDispose(() => {
+      clearDiagnostics(document);
       if (activeEditor?.webview === panel.webview) activeEditor = null;
       viewStateSub.dispose();
       changeSub.dispose();

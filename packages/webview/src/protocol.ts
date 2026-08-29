@@ -55,4 +55,16 @@ export type WebviewMessage =
   /** Serialized sidecar file body to persist verbatim (webview owns format). */
   | { type: "sidecarEdit"; kind: SidecarKind; json: string }
   /** CSV built from live editor + store state; empty=true means nothing to export. */
-  | { type: "exportResult"; kind: ExportKind; csv: string; empty: boolean };
+  | { type: "exportResult"; kind: ExportKind; csv: string; empty: boolean }
+  /** Quality-engine findings for the document (heading-level anchoring). */
+  | {
+      type: "diagnostics";
+      issues: Array<{
+        message: string;
+        severity: "error" | "warning";
+        /** Requirement/section ID whose heading anchors the finding, if any. */
+        targetId: string | null;
+        /** Rule name, shown as the diagnostic code. */
+        rule: string;
+      }>;
+    };

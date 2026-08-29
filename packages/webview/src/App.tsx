@@ -13,7 +13,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { useValidationStore } from "@/stores/validationStore";
 import { useDocumentValidation } from "@/editor/utils/useDocumentValidation";
 import type { RequirementRecord } from "@/editor/utils/requirementOps";
-import { bridgeHandleUpdate, initBridge } from "./bridge";
+import { bridgeHandleUpdate, initBridge, postDiagnostics } from "./bridge";
 
 const noop = (): void => {};
 
@@ -77,6 +77,7 @@ export function App() {
   const validationIssues = useDocumentValidation(editor, requirementPattern);
   useEffect(() => {
     setValidationIssues(validationIssues);
+    postDiagnostics(validationIssues);
   }, [validationIssues, setValidationIssues]);
 
   // ── Contextual right panels (browser-app pattern: one at a time) ──────────

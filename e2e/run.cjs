@@ -689,6 +689,49 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 10: quality engine — findings for defective requirements are
+    // posted to the host as diagnostics (duplicate IDs, missing status).
+    const QDOC = [
+      "## REQ_001 The system shall respond quickly",
+      "",
+      "Body.",
+      "",
+      "## REQ_001 The system shall also do something else",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, QDOC);
+    const diag = await page
+      .waitForFunction(
+        () => {
+          const d = window.__messages.filter((m) => m.type === "diagnostics").pop();
+          return d && d.issues.length > 0 ? d : undefined;
+        },
+        null,
+        { timeout: 8000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "diagnostics").pop()))
+      .catch(() => null);
+    ok = check(
+      "quality engine posts diagnostics for defective requirements",
+      diag !== null && diag.issues.length > 0,
+      "no diagnostics message with issues",
+    ) && ok;
+    if (diag) {
+      const hasDuplicate = diag.issues.some(
+        (i) => i.targetId === "REQ_001" && /duplicate/i.test(i.message + i.rule),
+      );
+      ok = check(
+        "duplicate requirement ID is reported against REQ_001",
+        hasDuplicate,
+        JSON.stringify(diag.issues.slice(0, 4)),
+      ) && ok;
+    }
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

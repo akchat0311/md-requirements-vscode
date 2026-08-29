@@ -8,6 +8,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { useStatusConfigStore } from "@/stores/statusConfigStore";
 import { initSidecars, onSidecarChanged } from "./sidecars";
 import { buildCsv } from "./exports";
+import type { ValidationIssue } from "@/types/validation";
 import type { EditorConfig, HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
 
@@ -34,6 +35,19 @@ let lastSyncedText = "";
 let lastSentText = "";
 let docName = "document.md";
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Forward quality-engine findings to the host for the Problems panel. */
+export function postDiagnostics(issues: ValidationIssue[]): void {
+  vscode.postMessage({
+    type: "diagnostics",
+    issues: issues.map((i) => ({
+      message: i.message,
+      severity: i.severity,
+      targetId: i.targetId ?? null,
+      rule: i.type,
+    })),
+  });
+}
 
 /** Called from the editor's onUpdate; no-op until the bridge is initialized. */
 export function bridgeHandleUpdate(): void {
