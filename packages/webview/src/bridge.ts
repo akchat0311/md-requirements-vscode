@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { parseMarkdownToDoc, serializeDocToMarkdown } from "@/markdown";
 import { mergePreservingUnchangedBlocks } from "@/markdown/sourcePreservation";
 import { expandSoftBreaks, collapseSoftBreaks } from "@/markdown/softBreaks";
+import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import { ensureKatex } from "@/editor/utils/katexLoader";
 import type { HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
@@ -44,7 +45,10 @@ function sendEdit(): void {
   }
   // D9: serialize canonically, then re-emit every unchanged block verbatim
   // from the current document text — untouched lines never get rewritten.
-  const canonical = serializeDocToMarkdown(collapseSoftBreaks(editor.getJSON() as never) as never);
+  // Empty top-level paragraphs are ephemeral UI state and never serialize.
+  const canonical = serializeDocToMarkdown(
+    stripEmptyTopLevelParagraphs(collapseSoftBreaks(editor.getJSON() as never)) as never,
+  );
   const markdown = mergePreservingUnchangedBlocks(lastSyncedText, canonical);
   if (markdown === lastSyncedText) return;
   inFlight = true;

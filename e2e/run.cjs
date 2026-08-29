@@ -250,6 +250,50 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 4: Enter then Backspace must leave the file byte-identical —
+    // an empty paragraph is ephemeral UI state, never file content, and its
+    // appearance must not canonicalize untouched blocks elsewhere (the
+    // 2026-08-30 incident: whole-file rewrite via the D9 safety gate).
+    const NONCANON = [
+      "Put the cursor after this colon:",
+      "",
+      "* star bullet untouched",
+      "   * three-space nested",
+      "",
+      "1) paren ordered untouched",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, NONCANON);
+    await page.evaluate(() => {
+      const walker = document.createTreeWalker(
+        document.querySelector(".ProseMirror p"),
+        NodeFilter.SHOW_TEXT,
+      );
+      const target = walker.nextNode();
+      const sel = window.getSelection();
+      const r = document.createRange();
+      r.setStart(target, target.textContent.length);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(600);
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(600);
+    const edits = await page.evaluate(() =>
+      window.__messages.filter((m) => m.type === "edit"),
+    );
+    const finalText = edits.length ? edits[edits.length - 1].markdown : NONCANON;
+    ok = check(
+      "Enter then Backspace leaves the file byte-identical",
+      finalText === NONCANON,
+      JSON.stringify({ edits: edits.length, finalText }),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);
