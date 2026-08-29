@@ -19,6 +19,13 @@ body {
 .ProseMirror {
   outline: none;
   min-height: 60vh;
+  /* REQUIRED by ProseMirror: without pre-wrap, the browser's contentEditable
+     normalizes raw \n soft breaks in text nodes into <br> elements during
+     editing, which reparse as hardBreak nodes and serialize as trailing
+     backslashes — corrupting soft-wrapped paragraphs (observed on the first
+     real edit test, 2026-08-29). */
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 {
