@@ -147,9 +147,15 @@ function buildDecorations(editorState: EditorState): DecorationSet {
     }
 
     // ── Section badge ─────────────────────────────────────────────────────────
+    // Every heading is reviewable, not only requirement matches: numbered
+    // headings key by their dotted number ("section:2.1"); unnumbered ones
+    // key by their text ("section:Callouts"). Renaming a heading orphans its
+    // comments — consistent with the sidecar design: broken links are
+    // preserved, never deleted.
     const sectionNum = extractSectionNumber(text);
-    if (sectionNum) {
-      const targetId = sectionReviewId(sectionNum);
+    const sectionKey = sectionNum ?? text.trim();
+    if (sectionKey) {
+      const targetId = sectionReviewId(sectionKey);
       const sectionComments = (comments[targetId] as ReviewComment[]) ?? [];
       const bState = badgeState(sectionComments);
       decorations.push(

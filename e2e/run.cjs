@@ -309,6 +309,10 @@ function check(name, cond, detail) {
     // drawer opens on badge click, store mutation posts a sidecarEdit with
     // the serialized .review.json body.
     const REQDOC = [
+      "## Introduction",
+      "",
+      "Plain heading — must be reviewable too (section target).",
+      "",
       "## REQ_001 The system shall respond within 2 seconds",
       "",
       "Body of the requirement.",
@@ -384,6 +388,34 @@ function check(name, cond, detail) {
       .then(() => true)
       .catch(() => false);
     ok = check("store mutation persists via sidecarEdit", wrote, "no sidecarEdit message") && ok;
+
+    // Every heading is reviewable: the unnumbered "Introduction" heading gets
+    // an (empty-state) badge whose click opens the drawer on its section id.
+    const introBadgeFound = await page.evaluate(() => {
+      const badges = [...document.querySelectorAll(".req-comment-badge")];
+      const intro = badges.find((b) =>
+        b.closest("h1,h2,h3,h4,h5,h6")?.textContent.startsWith("Introduction"),
+      );
+      if (!intro) return false;
+      // The badge acts on mousedown (it must beat ProseMirror's own handling).
+      intro.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      return true;
+    });
+    const sectionOpened = introBadgeFound
+      ? await page
+          .waitForFunction(
+            () => window.__mdreqStores.commentDrawer.getState().reqId === "section:Introduction",
+            null,
+            { timeout: 4000 },
+          )
+          .then(() => true)
+          .catch(() => false)
+      : false;
+    ok = check(
+      "plain (non-requirement) heading is reviewable as a section target",
+      sectionOpened,
+      introBadgeFound ? "drawer did not open on section id" : "NO BADGE ON PLAIN HEADING",
+    ) && ok;
     if (wrote) {
       const json = await page.evaluate(
         () => window.__messages.filter((m) => m.type === "sidecarEdit").pop().json,
