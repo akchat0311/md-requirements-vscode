@@ -70,7 +70,7 @@ async function openEditor(browser, port, markdown, config) {
   await page.evaluate(
     ({ md, cfg }) =>
       window.postMessage(
-        { type: "init", protocol: 3, text: md, version: 1, config: cfg, docName: "e2e-doc.md" },
+        { type: "init", protocol: 3, text: md, version: 1, config: cfg, docName: "e2e-doc.md", docBaseUri: "https://doc-base.example/docs" },
         "*",
       ),
     {
@@ -729,6 +729,50 @@ function check(name, cond, detail) {
         JSON.stringify(diag.issues.slice(0, 4)),
       ) && ok;
     }
+    await page.close();
+  }
+
+  {
+    // Scenario 11: relative images resolve against the document base URI
+    // (rendering only — the node attrs keep the relative path for fidelity);
+    // absolute URLs pass through untouched. Plus: Cmd/Ctrl+F opens the
+    // find-replace bar scoped to the preview.
+    const IDOC = [
+      "# Images",
+      "",
+      "![local](images/pic.png)",
+      "",
+      "![absolute](https://example.com/x.png)",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, IDOC);
+    const srcs = await page.evaluate(() =>
+      [...document.querySelectorAll(".ProseMirror img")].map((i) => i.getAttribute("src")),
+    );
+    ok = check(
+      "relative image src resolves against the document base",
+      srcs.includes("https://doc-base.example/docs/images/pic.png"),
+      JSON.stringify(srcs),
+    ) && ok;
+    ok = check(
+      "absolute image src passes through untouched",
+      srcs.includes("https://example.com/x.png"),
+      JSON.stringify(srcs),
+    ) && ok;
+
+    const fidelity = await lastEdit(page);
+    ok = check(
+      "image mapping never leaks into the markdown",
+      fidelity === null, // no edit at all: attrs kept the relative path
+      JSON.stringify(fidelity),
+    ) && ok;
+
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+f" : "Control+f");
+    const findOpen = await page
+      .waitForSelector('input[placeholder*="ind" i], input[type="text"]', { timeout: 4000 })
+      .then(() => true)
+      .catch(() => false);
+    ok = check("Cmd/Ctrl+F opens the in-preview find bar", findOpen, "no find input") && ok;
     await page.close();
   }
 

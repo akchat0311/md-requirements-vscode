@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ReqEditorProvider, getActiveEditor } from "./reqEditorProvider";
 import type { ExportKind } from "./protocol";
+import { disposeStatusBar } from "./statusBar";
 
 function registerExportCommand(command: string, kind: ExportKind): vscode.Disposable {
   return vscode.commands.registerCommand(command, () => {
@@ -33,4 +34,6 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  disposeStatusBar();
+}

@@ -8,6 +8,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { useStatusConfigStore } from "@/stores/statusConfigStore";
 import { initSidecars, onSidecarChanged } from "./sidecars";
 import { buildCsv } from "./exports";
+import { setImageBase } from "./WebviewImage";
 import type { ValidationIssue } from "@/types/validation";
 import type { EditorConfig, HostMessage, WebviewMessage } from "./protocol";
 import { PROTOCOL_VERSION } from "./protocol";
@@ -135,6 +136,7 @@ function handleHostMessage(msg: HostMessage): void {
       version = msg.version;
       lastSyncedText = msg.text;
       docName = msg.docName;
+      setImageBase(msg.docBaseUri);
       inFlight = false;
       pendingDirty = false;
       // Wait for the (local, lazy) KaTeX chunk before first render: math
@@ -207,6 +209,14 @@ export function initBridge(liveEditor: Editor): void {
         sendEdit(); // flush so the host acts on the latest state
         vscode.postMessage({ type: "forwardKey", command });
       };
+      if (key === "f") {
+        e.preventDefault();
+        e.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent("mdreq:find", { detail: { replace: e.altKey } }),
+        );
+        return;
+      }
       if (key === "z") forward(e.shiftKey ? "redo" : "undo");
       else if (key === "y" && e.ctrlKey) forward("redo");
       else if (key === "s") forward("save");

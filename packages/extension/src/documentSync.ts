@@ -31,7 +31,7 @@ export class DocumentSyncController {
     void this.webview.postMessage(message);
   }
 
-  sendInit(config: EditorConfig, docName: string): void {
+  sendInit(config: EditorConfig, docName: string, docBaseUri: string): void {
     this.deliveredVersion = this.document.version;
     this.post({
       type: "init",
@@ -40,6 +40,7 @@ export class DocumentSyncController {
       version: this.document.version,
       config,
       docName,
+      docBaseUri,
     });
   }
 

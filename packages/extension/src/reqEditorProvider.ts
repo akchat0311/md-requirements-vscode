@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { DocumentSyncController } from "./documentSync";
 import { SidecarService, readEditorConfig } from "./sidecars";
 import { publishDiagnostics, clearDiagnostics } from "./diagnostics";
+import { updateStatusBarFor } from "./statusBar";
 import type { ExportKind, WebviewMessage } from "./protocol";
 
 /** The most recently focused requirements editor (for palette commands). */
@@ -45,22 +46,36 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     document: vscode.TextDocument,
     panel: vscode.WebviewPanel,
   ): void {
+    const docDir = document.uri.with({
+      path: document.uri.path.replace(/\/[^/]*$/, ""),
+    });
     panel.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "media")],
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.context.extensionUri, "media"),
+        docDir,
+        ...(vscode.workspace.workspaceFolders?.map((f) => f.uri) ?? []),
+      ],
     };
     panel.webview.html = this.buildHtml(panel.webview);
 
     const sync = new DocumentSyncController(document, panel.webview);
     activeEditor = { webview: panel.webview, document };
+    updateStatusBarFor(document);
     const viewStateSub = panel.onDidChangeViewState(() => {
-      if (panel.active) activeEditor = { webview: panel.webview, document };
+      if (panel.active) {
+        activeEditor = { webview: panel.webview, document };
+        updateStatusBarFor(document);
+      } else if (activeEditor?.webview === panel.webview) {
+        updateStatusBarFor(null);
+      }
     });
     const sidecars = new SidecarService(document, (m) => void panel.webview.postMessage(m));
 
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() === document.uri.toString() && e.contentChanges.length > 0) {
         sync.onDocumentChanged();
+        if (activeEditor?.webview === panel.webview) updateStatusBarFor(document);
       }
     });
 
@@ -73,7 +88,11 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
     const messageSub = panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
       switch (msg.type) {
         case "ready":
-          sync.sendInit(readEditorConfig(), document.uri.path.split("/").pop() ?? "document.md");
+          sync.sendInit(
+            readEditorConfig(),
+            document.uri.path.split("/").pop() ?? "document.md",
+            panel.webview.asWebviewUri(docDir).toString(),
+          );
           void sidecars.sendAll();
           break;
         case "edit":
@@ -113,7 +132,10 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
 
     panel.onDidDispose(() => {
       clearDiagnostics(document);
-      if (activeEditor?.webview === panel.webview) activeEditor = null;
+      if (activeEditor?.webview === panel.webview) {
+        activeEditor = null;
+        updateStatusBarFor(null);
+      }
       viewStateSub.dispose();
       changeSub.dispose();
       configSub.dispose();

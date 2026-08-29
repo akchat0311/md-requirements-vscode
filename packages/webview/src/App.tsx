@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { createEditorExtensions } from "@/editor/extensions";
 import { SoftBreak } from "@/editor/extensions/SoftBreak";
+import { WebviewImage } from "./WebviewImage";
 import { EditorToolbar } from "@/editor/Toolbar";
 import { EditorContext } from "@/editor/EditorContext";
 import { CommentDrawer } from "@/layout/CommentDrawer";
 import { TraceabilityDrawer } from "@/layout/TraceabilityDrawer";
 import { Dashboard } from "@/layout/Dashboard";
+import { FindReplaceBar } from "@/layout/FindReplaceBar";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
 import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
 import { useConfigStore } from "@/stores/configStore";
@@ -21,7 +23,11 @@ export function App() {
   // Full product extension set. undoRedo off: the TextDocument owns the
   // single undo stack (D5). SoftBreak keeps raw \n out of the editable DOM.
   const extensions = useMemo(
-    () => [...createEditorExtensions({ undoRedo: false }), SoftBreak],
+    () => [
+      ...createEditorExtensions({ undoRedo: false }).filter((e) => e.name !== "image"),
+      WebviewImage,
+      SoftBreak,
+    ],
     [],
   );
 
@@ -48,6 +54,17 @@ export function App() {
   // EditorContext, so a second webview would need its own parsed document.
   // The editor stays mounted (hidden) while the dashboard is shown.
   const [view, setView] = useState<"editor" | "dashboard">("editor");
+  const [findOpen, setFindOpen] = useState(false);
+  const [findShowReplace, setFindShowReplace] = useState(false);
+  useEffect(() => {
+    const onFind = (e: Event) => {
+      setView("editor");
+      setFindShowReplace(Boolean((e as CustomEvent<{ replace?: boolean }>).detail?.replace));
+      setFindOpen(true);
+    };
+    window.addEventListener("mdreq:find", onFind);
+    return () => window.removeEventListener("mdreq:find", onFind);
+  }, []);
   useEffect(() => {
     const show = () => setView("dashboard");
     window.addEventListener("mdreq:showDashboard", show);
@@ -102,6 +119,11 @@ export function App() {
       <div className="flex h-screen w-full overflow-hidden" data-view={view}>
         <div className={view === "editor" ? "flex min-w-0 flex-1" : "hidden"}>
           <div className="min-w-0 flex-1 overflow-y-auto">
+            <FindReplaceBar
+              open={findOpen}
+              showReplace={findShowReplace}
+              onClose={() => setFindOpen(false)}
+            />
             <div id="editor-scroll" className="w-full py-8">
               <EditorToolbar editor={editor} />
               <div className="doc-page">

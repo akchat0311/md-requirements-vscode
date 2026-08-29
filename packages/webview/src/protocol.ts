@@ -36,6 +36,8 @@ export type HostMessage =
       config: EditorConfig;
       /** Document basename, e.g. "spec.md" — used in export filenames/rows. */
       docName: string;
+      /** Webview URI of the document's directory, for relative image paths. */
+      docBaseUri: string;
     }
   | { type: "docChanged"; text: string; version: number }
   | { type: "ack"; version: number }
