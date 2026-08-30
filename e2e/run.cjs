@@ -1031,6 +1031,73 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 15: "/" → New Requirement works in regex mode — the generated
+    // ID extends the nearest preceding requirement's stem group.
+    const SDOC = [
+      "## TRANS_Parking_002 Engage park within 500 ms",
+      "",
+      "Body of the requirement.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, SDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    // Cursor to end of the body paragraph, new line, type "/"
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      e.chain().focus().setTextSelection(e.state.doc.content.size - 1).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("/", { delay: 30 });
+    const itemShown = await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll("[role=option]")].some((el) =>
+            el.textContent.includes("New Requirement"),
+          ),
+        null,
+        { timeout: 5000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    if (!itemShown) {
+      console.error(
+        "      diag:",
+        await page.evaluate(() => ({
+          listbox: Boolean(document.querySelector("[role=listbox]")),
+          options: [...document.querySelectorAll("[role=option]")].map((o) => o.textContent.slice(0, 40)),
+          paraTail: document.querySelector(".ProseMirror").textContent.slice(-20),
+        })),
+      );
+    }
+    ok = check("slash menu offers New Requirement in regex mode", itemShown, "item missing") && ok;
+
+    if (itemShown) {
+      await page.keyboard.type("req", { delay: 30 });
+      await page.keyboard.press("Enter");
+      const md = await page
+        .waitForFunction(
+          () => {
+            const e = window.__messages.filter((m) => m.type === "edit").pop();
+            return e && e.markdown.includes("TRANS_Parking_003") ? true : undefined;
+          },
+          null,
+          { timeout: 6000 },
+        )
+        .then(() =>
+          page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown),
+        )
+        .catch(() => null);
+      ok = check(
+        "inserted requirement extends the anchor's stem group",
+        md !== null && md.includes("TRANS_Parking_003"),
+        md === null ? "no edit with TRANS_Parking_003" : md.slice(0, 200),
+      ) && ok;
+    }
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

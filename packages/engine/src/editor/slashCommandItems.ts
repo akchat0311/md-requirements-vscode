@@ -2,7 +2,7 @@ import type { Editor, Range } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { useConfigStore } from "@/stores/configStore";
 import { deriveOutline, flattenOutline } from "@/editor/utils/deriveOutline";
-import { compileRequirementPattern, analyzeRequirements, nextAvailableId, insertRequirementAfter } from "@/editor/utils/requirementOps";
+import { compileRequirementPattern, analyzeRequirements, nextAvailableId, nextAvailableIdForStem, insertRequirementAfter } from "@/editor/utils/requirementOps";
 import { getSectionRange } from "@/editor/utils/outlineOps";
 
 export interface SlashCommandItem {
@@ -19,7 +19,11 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
   // Regex-mode patterns can match IDs but can't *generate* a new one (a
   // regex describes matching, not construction), so this command — which
   // needs to synthesize the next ID — is only offered in simple mode.
-  if (!compileRequirementPattern(requirementPattern)?.supportsNumbering) return null;
+  // Simple mode can always generate the next ID; regex mode can generate
+  // within an existing ID's stem group (per-feature numbering), so the item
+  // shows whenever a pattern is configured — the command itself bails when
+  // no stem is derivable (e.g. an empty document in regex mode).
+  if (!compileRequirementPattern(requirementPattern)) return null;
 
   return {
     id: "requirement",
@@ -30,12 +34,27 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
     command: (editor: Editor, range: Range) => {
       const { requirementPattern: pattern } = useConfigStore.getState();
       const compiled = compileRequirementPattern(pattern);
-      if (!compiled || !compiled.supportsNumbering) return;
-
-      const { prefix, digits } = compiled;
+      if (!compiled) return;
 
       // Capture cursor position before deleting the slash text
       const cursorPos = range.from;
+
+      // Regex mode pre-check on the CURRENT doc (headings are unaffected by
+      // the slash text): a new ID needs a stem to extend — the nearest
+      // requirement before the cursor. Bail before deleting the "/" so a
+      // no-op leaves the user's typing intact.
+      if (!compiled.supportsNumbering) {
+        const flat0 = flattenOutline(deriveOutline(editor));
+        const analysis0 = analyzeRequirements(
+          flat0,
+          editor.state.doc.content.toJSON() as JSONContent[],
+          pattern,
+        );
+        const reqs0 = analysis0?.requirements ?? [];
+        const before0 = reqs0.filter((r) => r.node.pmPos <= cursorPos);
+        const anchor0 = before0.length > 0 ? before0[before0.length - 1] : reqs0[0];
+        if (!anchor0 || nextAvailableIdForStem(reqs0, anchor0.id) === null) return;
+      }
 
       // Remove the "/" and any filter text the user typed
       editor.chain().deleteRange(range).run();
@@ -45,7 +64,6 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
       const flat = flattenOutline(deriveOutline(editor));
       const analysis = analyzeRequirements(flat, docContent, pattern);
       const existingReqs = analysis?.requirements ?? [];
-      const newId = nextAvailableId(existingReqs, prefix, digits);
 
       // Anchor: nearest requirement before the cursor so the new one lands right after it
       const reqsBefore = existingReqs.filter((r) => r.node.pmPos <= cursorPos);
@@ -53,6 +71,15 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
         reqsBefore.length > 0
           ? reqsBefore[reqsBefore.length - 1]
           : existingReqs[0];
+
+      // Simple mode: next number document-wide. Regex mode: next number
+      // within the anchor's stem group (per-feature numbering).
+      const newId = compiled.supportsNumbering
+        ? nextAvailableId(existingReqs, compiled.prefix ?? "", compiled.digits ?? 3)
+        : anchor
+          ? nextAvailableIdForStem(existingReqs, anchor.id)
+          : null;
+      if (!newId) return;
 
       let nodeIndex: number;
       let nodeLevel: number;
