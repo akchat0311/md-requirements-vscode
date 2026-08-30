@@ -38,6 +38,9 @@ import {
   nextAvailableId,
   insertRequirementAfter,
   computeRenumberReplacements,
+  computeStemRenumberReplacements,
+  nextAvailableIdForStem,
+  splitIdNumericTail,
   type CompiledPattern,
   type RequirementAnalysis,
 } from "@/editor/utils/requirementOps";
@@ -793,8 +796,9 @@ function IssueSummaryStrip({
 
 interface RenumberConfirmDialogProps {
   reqCount: number;
-  prefix: string;
-  digits: number;
+  /** null in regex mode: renumbering is per ID-stem group, not one prefix. */
+  prefix: string | null;
+  digits: number | null;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -819,11 +823,21 @@ function RenumberConfirmDialog({
           <span className="font-medium text-[var(--color-text)]">
             {reqCount} requirement heading{reqCount !== 1 ? "s" : ""}
           </span>{" "}
-          will be renumbered sequentially using prefix{" "}
-          <code className="rounded bg-[var(--color-border)] px-1 font-mono text-[10px]">
-            {prefix || "(none)"}
-          </code>{" "}
-          with {digits}-digit formatting.
+          {prefix !== null && digits !== null ? (
+            <>
+              will be renumbered sequentially using prefix{" "}
+              <code className="rounded bg-[var(--color-border)] px-1 font-mono text-[10px]">
+                {prefix || "(none)"}
+              </code>{" "}
+              with {digits}-digit formatting.
+            </>
+          ) : (
+            <>
+              will be renumbered sequentially <em>within each ID group</em>{" "}
+              (everything before the trailing number, e.g. per feature).
+              IDs without a trailing number are left untouched.
+            </>
+          )}
         </p>
         <p className="mb-5 text-xs text-[var(--color-muted)]">
           Duplicate IDs and gaps will be resolved. This can be undone with Cmd+Z.
@@ -1173,6 +1187,7 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
   );
   const [issueListOpen, setIssueListOpen] = useState(false);
   const [renumberConfirmOpen, setRenumberConfirmOpen] = useState(false);
+
   const patternTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Outline rebuild ─────────────────────────────────────────────────────────
@@ -1909,10 +1924,24 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
     [editor, compiledPattern, analysis, getDocContent, applyContentOp]
   );
 
+  // Renumbering support: simple mode always; regex mode when IDs carry a
+  // trailing number (per-stem renumbering — TRANS_<Feature>_NNN groups by
+  // the stem, which embeds the feature segment).
+  const canRenumber = Boolean(
+    compiledPattern?.supportsNumbering ||
+      (compiledPattern?.mode === "regex" &&
+        analysis?.requirements.some((r) => splitIdNumericTail(r.id) !== null)),
+  );
+
   const handleRenumber = useCallback(() => {
-    if (!editor || !compiledPattern?.supportsNumbering || !analysis) return;
-    const { prefix, digits } = compiledPattern;
-    const replacements = computeRenumberReplacements(analysis.requirements, prefix, digits);
+    if (!editor || !compiledPattern || !analysis || !canRenumber) return;
+    const replacements = compiledPattern.supportsNumbering
+      ? computeRenumberReplacements(
+          analysis.requirements,
+          compiledPattern.prefix ?? "",
+          compiledPattern.digits ?? 3,
+        )
+      : computeStemRenumberReplacements(analysis.requirements);
 
     const { state } = editor;
     let tr = state.tr;
@@ -1944,14 +1973,20 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
     useTraceabilityStore.getState().remapRequirementIds(renames);
 
     setRenumberConfirmOpen(false);
-  }, [editor, compiledPattern, analysis]);
+  }, [editor, compiledPattern, analysis, canRenumber]);
 
   const handleReassignDuplicate = useCallback(
     (id: string, nodes: OutlineNode[]) => {
-      if (!editor || !compiledPattern?.supportsNumbering || !analysis) return;
-      const { prefix, digits } = compiledPattern;
+      if (!editor || !compiledPattern || !analysis || !canRenumber) return;
       const target = nodes[nodes.length - 1]; // last occurrence by document order
-      const newId = nextAvailableId(analysis.requirements, prefix, digits);
+      const newId = compiledPattern.supportsNumbering
+        ? nextAvailableId(
+            analysis.requirements,
+            compiledPattern.prefix ?? "",
+            compiledPattern.digits ?? 3,
+          )
+        : nextAvailableIdForStem(analysis.requirements, id);
+      if (!newId) return; // no numeric tail — cannot generate an ID
 
       const { state } = editor;
       const node = state.doc.nodeAt(target.pmPos);
@@ -1970,7 +2005,7 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
       useReviewCommentsStore.getState().copyRequirementComments(id, newId);
       useTraceabilityStore.getState().copyRequirementLinks(id, newId);
     },
-    [editor, compiledPattern, analysis]
+    [editor, compiledPattern, analysis, canRenumber]
   );
 
   // ── Validation issues (ordering) ────────────────────────────────────────────
@@ -2151,12 +2186,8 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
             issueListOpen={issueListOpen}
             onToggle={() => setIssueListOpen((o) => !o)}
             onNavigate={handleSelect}
-            onRenumber={
-              compiledPattern?.supportsNumbering ? () => setRenumberConfirmOpen(true) : undefined
-            }
-            onReassignDuplicate={
-              compiledPattern?.supportsNumbering ? handleReassignDuplicate : undefined
-            }
+            onRenumber={canRenumber ? () => setRenumberConfirmOpen(true) : undefined}
+            onReassignDuplicate={canRenumber ? handleReassignDuplicate : undefined}
           />
         )}
 
@@ -2256,11 +2287,11 @@ export function OutlinePanel({ width, noWidthStyle }: OutlinePanelProps) {
       )}
 
       {/* Renumber confirmation */}
-      {renumberConfirmOpen && compiledPattern?.supportsNumbering && analysis && (
+      {renumberConfirmOpen && canRenumber && analysis && (
         <RenumberConfirmDialog
           reqCount={analysis.requirements.length}
-          prefix={compiledPattern.prefix}
-          digits={compiledPattern.digits}
+          prefix={compiledPattern?.supportsNumbering ? compiledPattern.prefix : null}
+          digits={compiledPattern?.supportsNumbering ? compiledPattern.digits : null}
           onConfirm={handleRenumber}
           onCancel={() => setRenumberConfirmOpen(false)}
         />

@@ -940,6 +940,97 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 14: per-stem renumbering in regex mode — TRANS_<Feature>_NNN
+    // groups renumber independently (duplicates resolved, gaps compacted),
+    // and the resulting markdown carries the corrected IDs.
+    const NDOC = [
+      "## TRANS_Parking_004 Engage park within 500 ms",
+      "",
+      "Body.",
+      "",
+      "## TRANS_Parking_004 Duplicate on purpose",
+      "",
+      "Body.",
+      "",
+      "## TRANS_Reverse_009 Inhibit reverse above 5 km/h",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, NDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    const renumberBtn = await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll("#outline-panel button")].find((b) =>
+            /renumber/i.test(b.textContent),
+          )
+            ? true
+            : undefined,
+        null,
+        { timeout: 8000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("regex mode shows the Renumber button for duplicates", renumberBtn, "no button") && ok;
+
+    if (renumberBtn) {
+      await page.evaluate(() => {
+        const b = [...document.querySelectorAll("#outline-panel button")].find((x) =>
+          /renumber/i.test(x.textContent),
+        );
+        b?.click();
+      });
+      // Confirm dialog → confirm button
+      const confirmed = await page
+        .waitForFunction(
+          () =>
+            [...document.querySelectorAll("button")].some(
+              (b) => b.textContent.trim().toLowerCase() === "renumber",
+            ),
+          null,
+          { timeout: 4000 },
+        )
+        .then(() =>
+          page.evaluate(() => {
+            const b = [...document.querySelectorAll("button")]
+              .reverse()
+              .find((x) => x.textContent.trim().toLowerCase() === "renumber");
+            b?.click();
+            return Boolean(b);
+          }),
+        )
+        .catch(() => false);
+      const md = confirmed
+        ? await page
+            .waitForFunction(
+              () => {
+                const e = window.__messages.filter((m) => m.type === "edit").pop();
+                return e && e.markdown.includes("TRANS_Parking_002") ? e.markdown : undefined;
+              },
+              null,
+              { timeout: 6000 },
+            )
+            .then(() =>
+              page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown),
+            )
+            .catch(() => null)
+        : null;
+      ok = check(
+        "per-stem renumbering resolves duplicates and compacts groups",
+        md !== null &&
+          md.includes("TRANS_Parking_001 Engage park") &&
+          md.includes("TRANS_Parking_002 Duplicate") &&
+          md.includes("TRANS_Reverse_001 Inhibit reverse") &&
+          !md.includes("TRANS_Reverse_009"),
+        md === null ? "no renumbered edit observed" : md.slice(0, 300),
+      ) && ok;
+    }
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

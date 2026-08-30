@@ -563,6 +563,68 @@ export function computeRenumberReplacements(
   });
 }
 
+/**
+ * Splits an ID into its stem and trailing number: "TRANS_Parking_007" →
+ * { stem: "TRANS_Parking_", num: 7, width: 3 }. Returns null when the ID has
+ * no trailing digit run (such IDs cannot be renumbered).
+ */
+export function splitIdNumericTail(
+  id: string,
+): { stem: string; num: number; width: number } | null {
+  const m = /^(.*?)(\d+)$/.exec(id);
+  if (!m) return null;
+  return { stem: m[1], num: parseInt(m[2], 10), width: m[2].length };
+}
+
+/**
+ * Regex-mode renumbering: group requirements by ID stem (everything before
+ * the trailing number — for TRANS_<Feature>_NNN conventions the stem embeds
+ * the feature segment) and renumber each group 1..n in document order,
+ * keeping each group's digit width (the width of its first occurrence,
+ * widened if the count outgrows it). IDs without a trailing digit run are
+ * left untouched.
+ */
+export function computeStemRenumberReplacements(
+  requirements: RequirementEntry[],
+): RenumberReplacement[] {
+  const counters = new Map<string, { next: number; width: number }>();
+  const replacements: RenumberReplacement[] = [];
+  for (const entry of requirements) {
+    const split = splitIdNumericTail(entry.id);
+    if (!split) continue;
+    let group = counters.get(split.stem);
+    if (!group) {
+      group = { next: 1, width: split.width };
+      counters.set(split.stem, group);
+    }
+    const numText = String(group.next).padStart(group.width, "0");
+    const newId = split.stem + numText;
+    group.next += 1;
+    const suffix = entry.node.label.slice(entry.id.length);
+    replacements.push({ pmPos: entry.node.pmPos, newId, newLabel: newId + suffix, entry });
+  }
+  return replacements;
+}
+
+/**
+ * Regex-mode counterpart of nextAvailableId, scoped to the given ID's stem
+ * group: max existing number within the stem + 1, at the ID's digit width.
+ * Returns null when the ID has no numeric tail.
+ */
+export function nextAvailableIdForStem(
+  requirements: RequirementEntry[],
+  id: string,
+): string | null {
+  const target = splitIdNumericTail(id);
+  if (!target) return null;
+  let max = 0;
+  for (const entry of requirements) {
+    const split = splitIdNumericTail(entry.id);
+    if (split && split.stem === target.stem && split.num > max) max = split.num;
+  }
+  return target.stem + String(max + 1).padStart(target.width, "0");
+}
+
 // ── Mutation helpers ──────────────────────────────────────────────────────────
 
 /**
