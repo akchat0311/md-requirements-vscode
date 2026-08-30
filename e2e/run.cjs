@@ -776,6 +776,53 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 12: outline sidebar — lists headings, click navigates.
+    const ODOC = [
+      "# Title",
+      "",
+      "Intro.",
+      "",
+      "## Alpha Section",
+      "",
+      "Alpha body.",
+      "",
+      "## Omega Section",
+      "",
+      "Omega body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, ODOC);
+    const outlineHas = await page
+      .waitForFunction(
+        () => document.querySelector("#outline-panel")?.textContent.includes("Omega Section"),
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("outline panel lists document headings", outlineHas, "Omega Section missing") && ok;
+
+    const before = await page.evaluate(() => window.__mdreqEditor.state.selection.from);
+    await page.evaluate(() => {
+      const el = [...document.querySelectorAll("#outline-panel *")].find(
+        (n) => n.children.length === 0 && n.textContent.trim() === "Omega Section",
+      );
+      el?.closest("button, [role=button], li, div")?.click();
+      el?.click();
+    });
+    const moved = await page
+      .waitForFunction(
+        (b) => window.__mdreqEditor.state.selection.from !== b,
+        before,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("clicking an outline entry moves the selection", moved, `selection stayed at ${before}`) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

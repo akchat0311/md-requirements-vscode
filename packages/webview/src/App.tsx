@@ -9,6 +9,7 @@ import { CommentDrawer } from "@/layout/CommentDrawer";
 import { TraceabilityDrawer } from "@/layout/TraceabilityDrawer";
 import { Dashboard } from "@/layout/Dashboard";
 import { FindReplaceBar } from "@/layout/FindReplaceBar";
+import { OutlinePanel } from "@/layout/OutlinePanel";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
 import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
 import { useConfigStore } from "@/stores/configStore";
@@ -54,6 +55,7 @@ export function App() {
   // EditorContext, so a second webview would need its own parsed document.
   // The editor stays mounted (hidden) while the dashboard is shown.
   const [view, setView] = useState<"editor" | "dashboard">("editor");
+  const [outlineOpen, setOutlineOpen] = useState(true);
   const [findOpen, setFindOpen] = useState(false);
   const [findShowReplace, setFindShowReplace] = useState(false);
   useEffect(() => {
@@ -118,6 +120,14 @@ export function App() {
     <EditorContext.Provider value={editor}>
       <div className="flex h-screen w-full overflow-hidden" data-view={view}>
         <div className={view === "editor" ? "flex min-w-0 flex-1" : "hidden"}>
+          {outlineOpen && (
+            <div
+              id="outline-panel"
+              className="h-full w-[260px] shrink-0 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-paper)]"
+            >
+              <OutlinePanel width={260} noWidthStyle />
+            </div>
+          )}
           <div className="min-w-0 flex-1 overflow-y-auto">
             <FindReplaceBar
               open={findOpen}
@@ -141,6 +151,15 @@ export function App() {
               <TraceabilityDrawer reqId={tracePanelReqId} onClose={closeTracePanel} />
             </div>
           )}
+          <button
+            type="button"
+            id="toggle-outline"
+            title="Toggle outline"
+            className="fixed left-4 top-3 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
+            onClick={() => setOutlineOpen((o) => !o)}
+          >
+            ☰
+          </button>
           <button
             type="button"
             id="open-dashboard"

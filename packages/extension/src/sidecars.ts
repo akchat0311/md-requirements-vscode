@@ -14,6 +14,15 @@ import type { HostMessage, SidecarKind } from "./protocol";
  * tool) flow into the webview live via a FileSystemWatcher; our own writes
  * are swallowed by comparing against the last written body.
  */
+/** Sidecar file URIs for a markdown document (D7 frozen naming). */
+export function sidecarUris(document: vscode.TextDocument): Record<SidecarKind, vscode.Uri> {
+  const base = document.uri.path.replace(/\.md$/i, "");
+  return {
+    review: document.uri.with({ path: `${base}.review.json` }),
+    traceability: document.uri.with({ path: `${base}.test-traceability.json` }),
+  };
+}
+
 export class SidecarService {
   private readonly uris: Record<SidecarKind, vscode.Uri>;
   private readonly lastWritten: Partial<Record<SidecarKind, string>> = {};
@@ -23,11 +32,7 @@ export class SidecarService {
     document: vscode.TextDocument,
     private readonly post: (msg: HostMessage) => void,
   ) {
-    const base = document.uri.path.replace(/\.md$/i, "");
-    this.uris = {
-      review: document.uri.with({ path: `${base}.review.json` }),
-      traceability: document.uri.with({ path: `${base}.test-traceability.json` }),
-    };
+    this.uris = sidecarUris(document);
 
     for (const kind of ["review", "traceability"] as const) {
       const uri = this.uris[kind];
