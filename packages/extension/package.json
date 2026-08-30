@@ -4,7 +4,7 @@
   "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
   "version": "0.3.0",
   "type": "commonjs",
-  "publisher": "akchat",
+  "publisher": "akchattapayaksh",
   "engines": {
     "vscode": "^1.90.0"
   },

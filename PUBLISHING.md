@@ -6,9 +6,9 @@ malware scanning only). Total time: ~10 minutes the first time.
 ## One-time setup
 
 1. **Create a publisher** at <https://marketplace.visualstudio.com/manage>
-   (sign in with any Microsoft account). Pick a publisher ID — e.g.
-   `akchat` — and make sure `packages/extension/package.json` `"publisher"`
-   matches it exactly.
+   (sign in with any Microsoft account). Pick a publisher ID — ours is
+   `akchattapayaksh` — and make sure `packages/extension/package.json`
+   `"publisher"` matches it exactly.
 2. **Create a Personal Access Token (PAT)**:
    - Go to <https://dev.azure.com> → your profile → *Personal access
      tokens* → *New token*.
@@ -51,3 +51,17 @@ you).
 
 In the Marketplace management page, add your domain and a DNS TXT record to
 get the blue "verified" checkmark. Free.
+
+## Lessons from the first publish (2026-08-30)
+
+- Global Azure DevOps PATs retire 2026-12-01; the PAT creation UI is already
+  hard to find (it requires an Azure DevOps *organization* to exist first).
+- `vsce publish --azure-credential` (after `az login --use-device-code`)
+  authenticates fine but the Marketplace rejects tokens from PERSONAL
+  Microsoft accounts with "The requested operation is not allowed" — the
+  Entra flow effectively targets organizational accounts / CI federation.
+- The reliable no-token path for a personal account: package the vsix
+  (`npx @vscode/vsce package --no-dependencies`) and UPLOAD it in the web
+  UI at marketplace.visualstudio.com/manage → New extension → Visual
+  Studio Code. Updates work the same way (upload the new vsix on the
+  extension's ··· menu → Update).
