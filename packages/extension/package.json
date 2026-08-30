@@ -2,8 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
-  "version": "0.2.8",
-  "private": true,
+  "version": "0.3.0",
   "type": "commonjs",
   "publisher": "akchat",
   "engines": {
@@ -82,5 +81,29 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akchat0311/md-requirements-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/akchat0311/md-requirements-vscode/issues"
+  },
+  "homepage": "https://github.com/akchat0311/md-requirements-vscode#readme",
+  "keywords": [
+    "markdown",
+    "requirements",
+    "wysiwyg",
+    "editor",
+    "review",
+    "traceability",
+    "typora",
+    "specification"
+  ],
+  "galleryBanner": {
+    "color": "#1b1d22",
+    "theme": "dark"
   }
 }
