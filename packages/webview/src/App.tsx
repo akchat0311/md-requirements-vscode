@@ -127,9 +127,19 @@ export function App() {
           {outlineOpen && (
             <div
               id="outline-panel"
-              className="h-full w-[260px] shrink-0 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-paper)]"
+              className="flex h-full w-[260px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-paper)]"
             >
-              <OutlinePanel width={260} noWidthStyle />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <OutlinePanel width={260} noWidthStyle />
+              </div>
+              <button
+                type="button"
+                id="collapse-outline"
+                className="shrink-0 border-t border-[var(--color-border)] px-3 py-1.5 text-left text-xs font-medium text-[var(--color-muted)] hover:bg-black/5 hover:text-[var(--color-text)] dark:hover:bg-white/5"
+                onClick={() => setOutlineOpen(false)}
+              >
+                « Hide outline
+              </button>
             </div>
           )}
           <div className="min-w-0 flex-1 overflow-y-auto">
@@ -155,15 +165,17 @@ export function App() {
               <TraceabilityDrawer reqId={tracePanelReqId} onClose={closeTracePanel} />
             </div>
           )}
-          <button
-            type="button"
-            id="toggle-outline"
-            title="Toggle outline"
-            className="fixed bottom-6 left-4 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
-            onClick={() => setOutlineOpen((o) => !o)}
-          >
-            ☰
-          </button>
+          {!outlineOpen && (
+            <button
+              type="button"
+              id="toggle-outline"
+              title="Show outline"
+              className="fixed left-4 top-3 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
+              onClick={() => setOutlineOpen(true)}
+            >
+              ☰ Outline
+            </button>
+          )}
           <button
             type="button"
             id="open-dashboard"
