@@ -159,7 +159,7 @@ export function App() {
             type="button"
             id="toggle-outline"
             title="Toggle outline"
-            className="fixed left-4 top-3 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
+            className="fixed bottom-6 left-4 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
             onClick={() => setOutlineOpen((o) => !o)}
           >
             ☰

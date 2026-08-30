@@ -4,6 +4,8 @@ This paragraph is soft-wrapped across three lines, exactly like prose in a
 real requirements document; edit any word in it, save, and the git diff
 should show only this block changed — with the line wraps preserved.
 
+(TRANS_[A-Za-z0-9]+_\d{3})
+
 ## 1. Inline formatting
 
 Try selecting text here to get the bubble toolbar: **bold**, *italic*,
@@ -17,7 +19,19 @@ the tags are preserved byte-exact on save, never interpreted): press
 A hard break (backslash) follows this line\
 and this line continues after it.
 
-#
+> ### TRANS_feat_001 [Draft]
+>
+>
+
+> ### TRANS_feat_002 [Draft]
+
+> ### TRANS_feat_003 [Draft]
+
+> ### TRANS_feat_004 [Draft]
+>
+>
+
+/
 
 ## 2. Callouts
 
