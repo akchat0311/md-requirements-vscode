@@ -1123,7 +1123,7 @@ function check(name, cond, detail) {
       const e = window.__mdreqEditor;
       let pos = -1;
       e.state.doc.descendants((node, p) => {
-        if (node.isText && node.text.includes("Section three body")) pos = p + node.nodeSize - 1;
+        if (node.isText && node.text.includes("Section three body")) pos = p + node.nodeSize;
       });
       e.chain().focus().setTextSelection(pos).run();
     });
@@ -1148,7 +1148,7 @@ function check(name, cond, detail) {
       .catch(() => null);
     const inSectionThree =
       md !== null &&
-      md.indexOf("TRANS_Parking_002") > md.indexOf("Section three body paragraph.");
+      md.includes("Section three body paragraph.\n\n## TRANS_Parking_002");
     ok = check(
       "new requirement lands in the cursor's section, not an earlier one",
       inSectionThree,

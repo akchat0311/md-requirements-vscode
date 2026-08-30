@@ -2,8 +2,7 @@ import type { Editor, Range } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { useConfigStore } from "@/stores/configStore";
 import { deriveOutline, flattenOutline } from "@/editor/utils/deriveOutline";
-import { compileRequirementPattern, analyzeRequirements, nextAvailableId, nextAvailableIdForStem, insertRequirementAfter } from "@/editor/utils/requirementOps";
-import { getSectionRange } from "@/editor/utils/outlineOps";
+import { compileRequirementPattern, analyzeRequirements, nextAvailableId, nextAvailableIdForStem } from "@/editor/utils/requirementOps";
 
 export interface SlashCommandItem {
   id: string;
@@ -36,108 +35,52 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
       const compiled = compileRequirementPattern(pattern);
       if (!compiled) return;
 
-      // Capture cursor position before deleting the slash text
+      // The new requirement is created AT THE CURSOR: the block where the
+      // user typed "/" becomes the requirement heading (VS Code-era design
+      // change, 2026-08-30 — the browser app spliced it after the current
+      // section, which surprised users; see e2e scenarios 15/16).
       const cursorPos = range.from;
-
-      // Regex mode pre-check on the CURRENT doc (headings are unaffected by
-      // the slash text): a new ID needs a stem to extend — the nearest
-      // requirement before the cursor. Bail before deleting the "/" so a
-      // no-op leaves the user's typing intact.
-      if (!compiled.supportsNumbering) {
-        const flat0 = flattenOutline(deriveOutline(editor));
-        const analysis0 = analyzeRequirements(
-          flat0,
-          editor.state.doc.content.toJSON() as JSONContent[],
-          pattern,
-        );
-        const reqs0 = analysis0?.requirements ?? [];
-        const before0 = reqs0.filter((r) => r.node.pmPos <= cursorPos);
-        const anchor0 = before0.length > 0 ? before0[before0.length - 1] : reqs0[0];
-        if (!anchor0 || nextAvailableIdForStem(reqs0, anchor0.id) === null) return;
-      }
-
-      // Remove the "/" and any filter text the user typed
-      editor.chain().deleteRange(range).run();
-
-      // Re-read doc state after deletion
-      const docContent = editor.state.doc.content.toJSON() as JSONContent[];
       const flat = flattenOutline(deriveOutline(editor));
-      const analysis = analyzeRequirements(flat, docContent, pattern);
+      const analysis = analyzeRequirements(
+        flat,
+        editor.state.doc.content.toJSON() as JSONContent[],
+        pattern,
+      );
       const existingReqs = analysis?.requirements ?? [];
 
-      // ID context: the nearest requirement before the cursor (any section)
-      // supplies the stem in regex mode and the heading level to mirror.
+      // ID context: nearest requirement before the cursor supplies the regex
+      // stem (per-feature numbering) and the heading level to mirror.
       const reqsBefore = existingReqs.filter((r) => r.node.pmPos <= cursorPos);
       const idAnchor =
         reqsBefore.length > 0 ? reqsBefore[reqsBefore.length - 1] : existingReqs[0];
 
-      // Simple mode: next number document-wide. Regex mode: next number
-      // within the anchor's stem group (per-feature numbering).
       const newId = compiled.supportsNumbering
         ? nextAvailableId(existingReqs, compiled.prefix ?? "", compiled.digits ?? 3)
         : idAnchor
           ? nextAvailableIdForStem(existingReqs, idAnchor.id)
           : null;
+      // Regex mode with no stem context (empty document): bail without
+      // deleting, leaving the user's typed "/" intact.
       if (!newId) return;
 
-      // POSITION: only anchor to the preceding requirement when the cursor is
-      // still inside that requirement's own section — a heading of the same
-      // or shallower level between them means the cursor has moved on (e.g.
-      // into a later section with no requirements yet), and the insert must
-      // follow the CURSOR, not jump back to an earlier section.
-      const posCandidate = reqsBefore.length > 0 ? reqsBefore[reqsBefore.length - 1] : null;
-      const cursorInsideAnchorSection =
-        posCandidate !== null &&
-        !flat.some(
-          (n) =>
-            n.pmPos > posCandidate.node.pmPos &&
-            n.pmPos <= cursorPos &&
-            (n.level ?? 1) <= (posCandidate.node.level ?? 3),
-        );
+      const level = idAnchor?.node.level ?? 3;
 
-      let nodeIndex: number;
-      let nodeLevel: number;
-
-      if (posCandidate && cursorInsideAnchorSection) {
-        nodeIndex = posCandidate.node.index;
-        nodeLevel = posCandidate.node.level ?? 3;
-      } else {
-        // Insert after whichever top-level node holds the cursor, at the
-        // document's requirement heading level (mirroring the nearest one).
-        let fallback = 0;
-        editor.state.doc.forEach((_n, offset, idx) => {
-          if (offset <= cursorPos) fallback = idx;
-        });
-        nodeIndex = fallback;
-        nodeLevel = idAnchor?.node.level ?? 3;
-      }
-
-      const [, insertedAtIndex] = getSectionRange(docContent, nodeIndex, nodeLevel);
-      const newContent = insertRequirementAfter(docContent, nodeIndex, nodeLevel, newId);
-
-      // Use setTimeout to avoid React's flushSync conflict (same pattern as OutlinePanel)
-      setTimeout(() => {
-        editor.commands.setContent({ type: "doc", content: newContent });
-
-        let targetPmPos = -1;
-        editor.state.doc.forEach((_n, offset, idx) => {
-          if (idx === insertedAtIndex) targetPmPos = offset;
-        });
-
-        if (targetPmPos >= 0) {
-          const insertedNode = editor.state.doc.nodeAt(targetPmPos);
-          const isContainer =
-            insertedNode?.type.name === "blockquote" ||
-            insertedNode?.type.name === "callout";
-          const innerOffset = isContainer ? 2 : 1;
-          editor
-            .chain()
-            .focus()
-            .setTextSelection(targetPmPos + innerOffset + newId.length)
-            .scrollIntoView()
-            .run();
-        }
-      }, 0);
+      editor.chain().focus().deleteRange(range).run();
+      // Empty block (the common case — "/" on a fresh line): convert it in
+      // place. Otherwise split first so existing text stays a paragraph.
+      const parentEmpty = editor.state.selection.$from.parent.content.size === 0;
+      const chain = editor.chain().focus();
+      if (!parentEmpty) chain.splitBlock();
+      chain
+        .setNode("heading", { level })
+        .insertContent(`${newId} [Draft]`)
+        .run();
+      // Cursor between the ID and the status bracket, ready for the title.
+      editor
+        .chain()
+        .setTextSelection(editor.state.selection.from - " [Draft]".length)
+        .scrollIntoView()
+        .run();
     },
   };
 }
