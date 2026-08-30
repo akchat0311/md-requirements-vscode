@@ -823,6 +823,123 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 13: discoverable import/export + renumber.
+    // (a) Dashboard file sections expose working Load/Save As buttons that
+    //     route to host dialogs (sidecarAction messages).
+    // (b) The in-tab CSV export button routes through the host saveFile hook
+    //     (webview sandbox blocks <a download>).
+    // (c) Duplicate requirement IDs surface the outline's Renumber button.
+    const RDOC = [
+      "## REQ_001 The system shall respond",
+      "",
+      "Body.",
+      "",
+      "## REQ_001 The system shall log (duplicate on purpose)",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, RDOC);
+
+    // (c) outline renumber button appears for duplicate IDs
+    const renumberVisible = await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll("#outline-panel button")].some((b) =>
+            /renumber/i.test(b.textContent),
+          ),
+        null,
+        { timeout: 8000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    ok = check("outline shows Renumber for duplicate IDs", renumberVisible, "no renumber button") && ok;
+
+    // (a) dashboard Reviews tab file section: Load Review… posts sidecarAction
+    await page.evaluate(() => window.postMessage({ type: "showDashboard" }, "*"));
+    await page.waitForSelector('[data-view="dashboard"]', { timeout: 5000 });
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Reviews");
+      btn?.click();
+    });
+    const loadClicked = await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll('[data-testid="review-file-section"] button')].some((b) =>
+            /load/i.test(b.textContent),
+          ),
+        null,
+        { timeout: 5000 },
+      )
+      .then(() =>
+        page.evaluate(() => {
+          const b = [...document.querySelectorAll('[data-testid="review-file-section"] button')].find(
+            (x) => /load/i.test(x.textContent),
+          );
+          b?.click();
+          return Boolean(b);
+        }),
+      )
+      .catch(() => false);
+    const importPosted = loadClicked
+      ? await page
+          .waitForFunction(
+            () =>
+              window.__messages.some(
+                (m) => m.type === "sidecarAction" && m.kind === "review" && m.action === "import",
+              ),
+            null,
+            { timeout: 4000 },
+          )
+          .then(() => true)
+          .catch(() => false)
+      : false;
+    ok = check("dashboard Load Review button posts a host import action", importPosted, `clicked=${loadClicked}`) && ok;
+
+    // (b) traceability tab CSV export → saveFile message
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          type: "sidecarChanged",
+          kind: "traceability",
+          data: { version: 1, testCases: [{ id: "TC_1", title: "t" }], links: [{ tc: "TC_1", req: "REQ_001" }], coverage: {} },
+        },
+        "*",
+      );
+    });
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Traceability");
+      btn?.click();
+    });
+    const csvClicked = await page
+      .waitForFunction(
+        () => [...document.querySelectorAll("button")].some((b) => /export csv/i.test(b.textContent)),
+        null,
+        { timeout: 5000 },
+      )
+      .then(() =>
+        page.evaluate(() => {
+          const b = [...document.querySelectorAll("button")].find((x) => /export csv/i.test(x.textContent));
+          b?.click();
+          return Boolean(b);
+        }),
+      )
+      .catch(() => false);
+    const savePosted = csvClicked
+      ? await page
+          .waitForFunction(
+            () => window.__messages.some((m) => m.type === "saveFile" && m.name.endsWith(".csv")),
+            null,
+            { timeout: 4000 },
+          )
+          .then(() => true)
+          .catch(() => false)
+      : false;
+    ok = check("in-tab CSV export routes through the host save dialog", savePosted, `clicked=${csvClicked}`) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

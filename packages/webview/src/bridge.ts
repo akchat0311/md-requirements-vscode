@@ -37,6 +37,14 @@ let lastSentText = "";
 let docName = "document.md";
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** Dashboard file-section buttons → host-side import / Save As dialogs. */
+export function postSidecarAction(
+  kind: "review" | "traceability",
+  action: "import" | "saveAs",
+): void {
+  vscode.postMessage({ type: "sidecarAction", kind, action });
+}
+
 /** Forward quality-engine findings to the host for the Problems panel. */
 export function postDiagnostics(issues: ValidationIssue[]): void {
   vscode.postMessage({
@@ -184,6 +192,12 @@ export function initBridge(liveEditor: Editor): void {
   if (editor) return; // React StrictMode double-invoke guard
   editor = liveEditor;
   (window as unknown as Record<string, unknown>).__mdreqEditor = liveEditor;
+  // CSV "download" buttons inside dashboard tabs route through the host
+  // (webview sandbox blocks <a download>); see the engine download helpers.
+  (window as unknown as Record<string, unknown>).__mdreqSaveFile = (
+    name: string,
+    content: string,
+  ) => vscode.postMessage({ type: "saveFile", name, content });
 
   window.addEventListener("message", (event: MessageEvent<HostMessage>) =>
     handleHostMessage(event.data),

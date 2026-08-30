@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { DocumentSyncController } from "./documentSync";
-import { SidecarService, readEditorConfig } from "./sidecars";
+import { SidecarService, importSidecar, readEditorConfig, saveSidecarAs } from "./sidecars";
 import { publishDiagnostics, clearDiagnostics } from "./diagnostics";
 import { updateStatusBarFor } from "./statusBar";
 import type { ExportKind, WebviewMessage } from "./protocol";
@@ -116,6 +116,24 @@ export class ReqEditorProvider implements vscode.CustomTextEditorProvider {
               if (!uri) return;
               await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.csv, "utf8"));
               void vscode.window.showInformationMessage(`Exported ${uri.path.split("/").pop()}`);
+            });
+          break;
+        }
+        case "sidecarAction":
+          if (msg.action === "import") void importSidecar(document, msg.kind);
+          else void saveSidecarAs(document, msg.kind);
+          break;
+        case "saveFile": {
+          const dir = document.uri.path.replace(/\/[^/]*$/, "");
+          void vscode.window
+            .showSaveDialog({
+              defaultUri: document.uri.with({ path: `${dir}/${msg.name}` }),
+              filters: { CSV: ["csv"], All: ["*"] },
+            })
+            .then(async (uri) => {
+              if (!uri) return;
+              await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.content, "utf8"));
+              void vscode.window.showInformationMessage(`Saved ${uri.path.split("/").pop()}`);
             });
           break;
         }

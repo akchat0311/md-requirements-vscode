@@ -16,9 +16,13 @@ import { useConfigStore } from "@/stores/configStore";
 import { useValidationStore } from "@/stores/validationStore";
 import { useDocumentValidation } from "@/editor/utils/useDocumentValidation";
 import type { RequirementRecord } from "@/editor/utils/requirementOps";
-import { bridgeHandleUpdate, initBridge, postDiagnostics } from "./bridge";
+import { Toaster } from "@/layout/Toast";
+import { useToastStore } from "@/stores/toastStore";
+import { bridgeHandleUpdate, initBridge, postDiagnostics, postSidecarAction } from "./bridge";
 
-const noop = (): void => {};
+const autoSaveToast = (): void => {
+  useToastStore.getState().show("Sidecars save automatically in VS Code.", "info");
+};
 
 export function App() {
   // Full product extension set. undoRedo off: the TextDocument owns the
@@ -186,16 +190,17 @@ export function App() {
             <div className="min-h-0 flex-1 overflow-hidden">
               <Dashboard
                 onNavigateToEditor={navigateToEditor}
-                onLoadReview={noop}
-                onSaveReview={noop}
-                onSaveReviewAs={noop}
-                onLoadTraceability={noop}
-                onSaveTraceability={noop}
-                onSaveTraceabilityAs={noop}
+                onLoadReview={() => postSidecarAction("review", "import")}
+                onSaveReview={autoSaveToast}
+                onSaveReviewAs={() => postSidecarAction("review", "saveAs")}
+                onLoadTraceability={() => postSidecarAction("traceability", "import")}
+                onSaveTraceability={autoSaveToast}
+                onSaveTraceabilityAs={() => postSidecarAction("traceability", "saveAs")}
               />
             </div>
           </div>
         )}
+        <Toaster />
       </div>
     </EditorContext.Provider>
   );

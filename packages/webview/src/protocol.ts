@@ -58,6 +58,10 @@ export type WebviewMessage =
   | { type: "sidecarEdit"; kind: SidecarKind; json: string }
   /** CSV built from live editor + store state; empty=true means nothing to export. */
   | { type: "exportResult"; kind: ExportKind; csv: string; empty: boolean }
+  /** Dashboard file-section buttons: run a host-side import / Save As flow. */
+  | { type: "sidecarAction"; kind: SidecarKind; action: "import" | "saveAs" }
+  /** Save arbitrary text (e.g. a CSV built in the webview) via a host dialog. */
+  | { type: "saveFile"; name: string; content: string }
   /** Quality-engine findings for the document (heading-level anchoring). */
   | {
       type: "diagnostics";
