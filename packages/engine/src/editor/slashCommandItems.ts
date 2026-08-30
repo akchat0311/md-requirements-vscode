@@ -65,36 +65,51 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
       const analysis = analyzeRequirements(flat, docContent, pattern);
       const existingReqs = analysis?.requirements ?? [];
 
-      // Anchor: nearest requirement before the cursor so the new one lands right after it
+      // ID context: the nearest requirement before the cursor (any section)
+      // supplies the stem in regex mode and the heading level to mirror.
       const reqsBefore = existingReqs.filter((r) => r.node.pmPos <= cursorPos);
-      const anchor =
-        reqsBefore.length > 0
-          ? reqsBefore[reqsBefore.length - 1]
-          : existingReqs[0];
+      const idAnchor =
+        reqsBefore.length > 0 ? reqsBefore[reqsBefore.length - 1] : existingReqs[0];
 
       // Simple mode: next number document-wide. Regex mode: next number
       // within the anchor's stem group (per-feature numbering).
       const newId = compiled.supportsNumbering
         ? nextAvailableId(existingReqs, compiled.prefix ?? "", compiled.digits ?? 3)
-        : anchor
-          ? nextAvailableIdForStem(existingReqs, anchor.id)
+        : idAnchor
+          ? nextAvailableIdForStem(existingReqs, idAnchor.id)
           : null;
       if (!newId) return;
+
+      // POSITION: only anchor to the preceding requirement when the cursor is
+      // still inside that requirement's own section — a heading of the same
+      // or shallower level between them means the cursor has moved on (e.g.
+      // into a later section with no requirements yet), and the insert must
+      // follow the CURSOR, not jump back to an earlier section.
+      const posCandidate = reqsBefore.length > 0 ? reqsBefore[reqsBefore.length - 1] : null;
+      const cursorInsideAnchorSection =
+        posCandidate !== null &&
+        !flat.some(
+          (n) =>
+            n.pmPos > posCandidate.node.pmPos &&
+            n.pmPos <= cursorPos &&
+            (n.level ?? 1) <= (posCandidate.node.level ?? 3),
+        );
 
       let nodeIndex: number;
       let nodeLevel: number;
 
-      if (anchor) {
-        nodeIndex = anchor.node.index;
-        nodeLevel = anchor.node.level ?? 3;
+      if (posCandidate && cursorInsideAnchorSection) {
+        nodeIndex = posCandidate.node.index;
+        nodeLevel = posCandidate.node.level ?? 3;
       } else {
-        // No requirements yet — insert after whichever top-level node held the cursor
+        // Insert after whichever top-level node holds the cursor, at the
+        // document's requirement heading level (mirroring the nearest one).
         let fallback = 0;
         editor.state.doc.forEach((_n, offset, idx) => {
           if (offset <= cursorPos) fallback = idx;
         });
         nodeIndex = fallback;
-        nodeLevel = 3;
+        nodeLevel = idAnchor?.node.level ?? 3;
       }
 
       const [, insertedAtIndex] = getSectionRange(docContent, nodeIndex, nodeLevel);

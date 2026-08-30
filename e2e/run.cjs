@@ -1098,6 +1098,65 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 16 (regression, user report 2026-08-30): inserting a new
+    // requirement with the cursor in a LATER section that has no
+    // requirements must insert at the cursor's section — not jump back to
+    // the previous section's last requirement.
+    const SECDOC = [
+      "# 1. Parking",
+      "",
+      "## TRANS_Parking_001 The transmission shall engage park",
+      "",
+      "Parking body.",
+      "",
+      "# 3. Diagnostics",
+      "",
+      "Section three body paragraph.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, SECDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    // Cursor into the section-three paragraph, then new line + slash insert.
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((node, p) => {
+        if (node.isText && node.text.includes("Section three body")) pos = p + node.nodeSize - 1;
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("/req", { delay: 30 });
+    await page.waitForFunction(
+      () => [...document.querySelectorAll("[role=option]")].some((el) => el.textContent.includes("New Requirement")),
+      null,
+      { timeout: 5000 },
+    ).catch(() => {});
+    await page.keyboard.press("Enter");
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("TRANS_Parking_002") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    const inSectionThree =
+      md !== null &&
+      md.indexOf("TRANS_Parking_002") > md.indexOf("Section three body paragraph.");
+    ok = check(
+      "new requirement lands in the cursor's section, not an earlier one",
+      inSectionThree,
+      md === null ? "no insert observed" : md.slice(0, 400),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);
