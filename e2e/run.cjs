@@ -1423,6 +1423,48 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 22 (user report, 2026-09-01): inserting an item in an ordered
+    // list must renumber the FILE's markers ("1. 2. 2. 4. 5." bug). The
+    // all-ones convention survives edits as all-ones.
+    // A paragraph separates the lists: same-delimiter lists across a bare
+    // blank line are ONE loose list per CommonMark.
+    const LDOC = "1. alpha\n2. beta\n3. gamma\n\nseparator paragraph\n\n1. one\n1. one again\n1. once more\n";
+    const page = await openEditor(browser, port, LDOC);
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((n, p) => {
+        if (n.isText && n.text.includes("alpha")) pos = p + n.nodeSize;
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter"); // new list item after alpha
+    await page.keyboard.type("inserted", { delay: 20 });
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("inserted") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "inserting a list item renumbers the file's markers",
+      md !== null && md.includes("1. alpha\n2. inserted\n3. beta\n4. gamma"),
+      JSON.stringify(md),
+    ) && ok;
+    ok = check(
+      "untouched all-ones list keeps its style",
+      md !== null && md.includes("1. one\n1. one again\n1. once more"),
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

@@ -1,8 +1,8 @@
 {
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
-  "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
-  "version": "0.3.5",
+  "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
+  "version": "0.3.6",
   "type": "commonjs",
   "publisher": "akchattapayaksh",
   "engines": {
@@ -29,19 +29,19 @@
       },
       {
         "command": "mdreq.importReview",
-        "title": "Requirements: Import Review Comments (JSON)\u2026"
+        "title": "Requirements: Import Review Comments (JSON)…"
       },
       {
         "command": "mdreq.importTraceability",
-        "title": "Requirements: Import Traceability (JSON)\u2026"
+        "title": "Requirements: Import Traceability (JSON)…"
       },
       {
         "command": "mdreq.saveReviewJsonAs",
-        "title": "Requirements: Save Review Comments As (JSON)\u2026"
+        "title": "Requirements: Save Review Comments As (JSON)…"
       },
       {
         "command": "mdreq.saveTraceabilityJsonAs",
-        "title": "Requirements: Save Traceability As (JSON)\u2026"
+        "title": "Requirements: Save Traceability As (JSON)…"
       }
     ],
     "configuration": {
@@ -50,7 +50,7 @@
         "mdreq.requirementPattern": {
           "type": "string",
           "default": "REQ_001",
-          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges \u2014 e.g. `REQ_001`, `SRS-0001`. Ignored when `#mdreq.requirementPatternRegex#` is set. Leave both empty to disable requirement detection."
+          "markdownDescription": "Example requirement ID (simple mode). Headings whose text starts with an ID of this shape get review/traceability badges — e.g. `REQ_001`, `SRS-0001`. Ignored when `#mdreq.requirementPatternRegex#` is set. Leave both empty to disable requirement detection."
         },
         "mdreq.requirementPatternRegex": {
           "type": "string",
@@ -69,7 +69,7 @@
             "paragraph"
           ],
           "default": "line",
-          "markdownDescription": "What Enter does in a paragraph. `line` (default): one newline in the file; press Enter again on the empty line for a paragraph break (blank line). `paragraph`: classic markdown \u2014 Enter always starts a new paragraph; use Shift+Enter for a line break."
+          "markdownDescription": "What Enter does in a paragraph. `line` (default): one newline in the file; press Enter again on the empty line for a paragraph break (blank line). `paragraph`: classic markdown — Enter always starts a new paragraph; use Shift+Enter for a line break."
         }
       }
     },
