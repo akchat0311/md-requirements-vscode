@@ -1505,6 +1505,77 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 24 (variant feature, design D10–D13): a heading with
+    // "[*Draft*] [V2]" renders a status chip AND a variant chip; changing
+    // the status via the dropdown rewrites ONLY the status bracket in the
+    // file — the variant survives byte-exact. A pre-variant heading in the
+    // same doc keeps its exact bytes.
+    const VDOC = [
+      "# Doc",
+      "",
+      "### TRANS_feat_001 Login flow [*Draft*] [V2]",
+      "",
+      "Body one.",
+      "",
+      "### TRANS_feat_002 Old style [*Draft*]",
+      "",
+      "Body two.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, VDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    await page.waitForSelector(".req-variant-btn", { timeout: 6000 }).catch(() => {});
+    const chips = await page.evaluate(() => ({
+      variant: [...document.querySelectorAll(".req-variant-btn")].map((b) => b.textContent),
+      statuses: [...document.querySelectorAll(".req-status-btn")].length,
+    }));
+    ok = check(
+      "variant chip renders with the variant text",
+      chips.variant.includes("V2"),
+      JSON.stringify(chips),
+    ) && ok;
+
+    // Change TRANS_feat_001's status Draft → Approved via the dropdown.
+    await page.evaluate(() => {
+      const h = [...document.querySelectorAll(".ProseMirror h3")].find((el) =>
+        el.textContent.includes("TRANS_feat_001"),
+      );
+      const btn = h.querySelector(".req-status-btn");
+      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    });
+    await page.waitForSelector(".req-status-menu:not([style*='none']) .req-status-option");
+    await page.evaluate(() => {
+      const opt = [...document.querySelectorAll(".req-status-option")].find(
+        (el) => el.textContent === "Approved",
+      );
+      opt.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    });
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("Approved") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "status change rewrites only the status — variant survives byte-exact",
+      md !== null && md.includes("### TRANS_feat_001 Login flow [*Approved*] [V2]"),
+      JSON.stringify(md),
+    ) && ok;
+    ok = check(
+      "pre-variant heading in the same doc keeps its exact bytes",
+      md !== null && md.includes("### TRANS_feat_002 Old style [*Draft*]"),
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

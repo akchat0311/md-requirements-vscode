@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents — review comments, traceability, and quality checks",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "type": "commonjs",
   "publisher": "akchattapayaksh",
   "engines": {
@@ -70,6 +70,14 @@
           ],
           "default": "line",
           "markdownDescription": "What Enter does in a paragraph. `line` (default): one newline in the file; press Enter again on the empty line for a paragraph break (blank line). `paragraph`: classic markdown — Enter always starts a new paragraph; use Shift+Enter for a line break."
+        },
+        "mdreq.variantVocabulary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Allowed values for the optional `[Variant]` bracket on requirement headings (e.g. `TRANS_feat_001 [*Draft*] [V2]`). When set, the variant chip becomes a dropdown and unknown variants are flagged by the quality checks. Leave empty to allow free-text variants."
         }
       }
     },

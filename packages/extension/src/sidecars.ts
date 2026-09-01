@@ -188,6 +188,10 @@ let warnedInvalidRegex: string | null = null;
 
 export function readEditorConfig(): import("./protocol").EditorConfig {
   const cfg = vscode.workspace.getConfiguration("mdreq");
+  const variantVocabulary = cfg
+    .get<string[]>("variantVocabulary", [])
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0);
   const regexSource = cfg.get<string>("requirementPatternRegex", "").trim();
   const regexFlags = cfg.get<string>("requirementPatternRegexFlags", "").trim();
   if (regexSource.length > 0) {
@@ -199,6 +203,7 @@ export function readEditorConfig(): import("./protocol").EditorConfig {
         requirementPattern: { mode: "regex", source: regexSource, flags: regexFlags },
         enterMode:
           cfg.get<string>("newlineBehavior", "line") === "paragraph" ? "paragraph" : "line",
+        variantVocabulary,
       };
     } catch (e) {
       if (warnedInvalidRegex !== regexSource) {
@@ -216,5 +221,6 @@ export function readEditorConfig(): import("./protocol").EditorConfig {
   return {
     requirementPattern: example.length > 0 ? { mode: "simple", example } : null,
     enterMode,
+    variantVocabulary,
   };
 }

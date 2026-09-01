@@ -442,7 +442,7 @@ export default function App() {
   const closeInlineDrawer = useCommentDrawerStore((s) => s.close);
 
   const inlineDrawerRecord: RequirementRecord | null = inlineDrawerReqId
-    ? { id: inlineDrawerReqId, status: inlineDrawerStatus, section: "", pmPos: 0, title: "" }
+    ? { id: inlineDrawerReqId, status: inlineDrawerStatus, section: "", pmPos: 0, title: "", variant: null }
     : null;
 
   // ── Traceability panel (right workspace, opened from 🧪 badges) ──────────────

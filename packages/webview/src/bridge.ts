@@ -103,6 +103,7 @@ function applyExternal(text: string): void {
 function applyConfig(config: EditorConfig): void {
   useEditorBehaviorStore.getState().setEnterMode(config.enterMode ?? "line");
   const store = useConfigStore.getState();
+  store.setVariantVocabulary(config.variantVocabulary ?? []);
   const pattern = config.requirementPattern;
   if (pattern === null) {
     store.clearRequirementPattern();

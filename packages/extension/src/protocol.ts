@@ -29,6 +29,12 @@ export interface EditorConfig {
    * new paragraph (blank line); Shift+Enter for a line break.
    */
   enterMode: "line" | "paragraph";
+  /**
+   * Configured variant vocabulary for the optional [Variant] heading bracket
+   * (design D10–D13). Empty/omitted = variants are free text (no dropdown,
+   * no unknown-variant quality rule). Additive-optional: protocol stays 3.
+   */
+  variantVocabulary?: string[];
 }
 
 /** Host → webview. All text payloads are LF-normalized. */

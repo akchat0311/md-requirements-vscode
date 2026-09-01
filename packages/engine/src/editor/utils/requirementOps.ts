@@ -3,7 +3,7 @@ import type { OutlineNode } from "@/types/outline";
 import type { RequirementStatus } from "@/types/requirementStatus";
 import type { RequirementPattern } from "@/stores/configStore";
 import { getNodeSectionRange, getSectionRange, renameHeading } from "@/editor/utils/outlineOps";
-import { resolveRequirementStatus } from "@/services/requirementStatusService";
+import { parseHeadingFields, fieldsStartOffset, variantDisplayText } from "@/editor/utils/headingFields";
 
 // ── Pattern derivation ────────────────────────────────────────────────────────
 
@@ -414,8 +414,10 @@ export interface RequirementRecord {
   section: string;
   /** ProseMirror absolute offset for click-to-navigate. */
   pmPos: number;
-  /** Heading label with ID prefix and optional " [Status]" suffix stripped. */
+  /** Heading label with ID prefix and trailing field brackets stripped. */
   title: string;
+  /** Display text of the [Variant] bracket (D10–D13), or null when absent. */
+  variant: string | null;
 }
 
 export interface RequirementIndex {
@@ -497,18 +499,19 @@ export function buildRequirementIndex(
       const matched = matchByKey.get(node.key)!;
       const { id, matchLength } = matched;
 
-      const rawStatusText = extractStatusText(rawLabel);
-      const status = rawStatusText
-        ? resolveRequirementStatus(rawStatusText, statuses)
-        : "unknown";
+      // Shared trailing-bracket tokenizer (D11): classifies [Status] and
+      // the optional [Variant] in one pass.
+      const fields = parseHeadingFields(rawLabel, statuses);
+      const status = fields.status?.statusId ?? "unknown";
+      const variant = fields.variant ? variantDisplayText(fields.variant.inner) : null;
 
-      // Derive title: strip the matched ID portion and optional " [Status]"
-      // suffix from the label. Uses matchLength (full match), not id.length,
-      // since regex mode's capture group may be shorter than the full match
-      // (e.g. a literal prefix outside the capturing group).
-      const titleRaw = rawLabel.slice(matchLength).replace(/\s*\[[^\]]*\]\s*$/, "").trim();
+      // Derive title: strip the matched ID portion and the trailing field
+      // brackets from the label. Uses matchLength (full match), not
+      // id.length, since regex mode's capture group may be shorter than the
+      // full match (e.g. a literal prefix outside the capturing group).
+      const titleRaw = rawLabel.slice(matchLength, fieldsStartOffset(rawLabel, fields)).trim();
 
-      requirements.push({ id, status, section, pmPos: node.pmPos, title: titleRaw });
+      requirements.push({ id, status, section, pmPos: node.pmPos, title: titleRaw, variant });
     }
   }
 

@@ -120,7 +120,7 @@ export function App() {
   }, [drawerReqId, closeTracePanel]);
 
   const drawerRecord: RequirementRecord | null = drawerReqId
-    ? { id: drawerReqId, status: drawerStatus, section: "", pmPos: 0, title: "" }
+    ? { id: drawerReqId, status: drawerStatus, section: "", pmPos: 0, title: "", variant: null }
     : null;
 
   if (!editor) return null;
