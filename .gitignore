@@ -5,3 +5,10 @@ packages/extension/media/
 .DS_Store
 *.vsix
 coverage/
+
+# Local testing artifacts (sidecars/exports of the sample docs)
+test5.review.json
+test5.test-traceability.json
+*.reviews.csv
+*-traceability.csv
+Welcome.md
