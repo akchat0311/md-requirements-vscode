@@ -61,6 +61,12 @@ Another: mass–energy equivalence is $E = mc^2$, and a fraction $\frac{a+b}{c}$
 
 ### TRANS_feat_005 [Draft]
 
+### TRANS_feat_009 [*Draft*]
+
+### TRANS_feat_010 [*Draft*]
+
+### TRANS_feat_011 [*Draft*]
+
 ## 4. Mermaid diagram
 
 ```mermaid

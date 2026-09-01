@@ -1243,6 +1243,52 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 19 (regression, user report 2026-09-01): after a slash-insert
+    // the caret sits before " [Draft]". Pressing Enter there must NOT split
+    // the heading (which dragged the status into the body text) — it opens a
+    // paragraph below, and typed text lands there.
+    const HDOC = [
+      "### TRANS_feat_010 Existing requirement [*Draft*]",
+      "",
+      "Existing body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, HDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    // Caret mid-heading: right after the ID (before " Existing requirement").
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((node, p) => {
+        if (node.isText && node.text.includes("TRANS_feat_010")) {
+          pos = p + node.text.indexOf("TRANS_feat_010") + "TRANS_feat_010".length;
+        }
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("some text", { delay: 20 });
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("some text") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "Enter in a heading opens a paragraph below — heading stays intact",
+      md === "### TRANS_feat_010 Existing requirement [*Draft*]\n\nsome text\n\nExisting body.\n",
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);
