@@ -66,25 +66,39 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
       const level = idAnchor?.node.level ?? 3;
 
       editor.chain().focus().deleteRange(range).run();
-      // Empty block (the common case — "/" on a fresh line): convert it in
-      // place. Otherwise split first so existing text stays a paragraph.
+      const headingContent = [
+        { type: "text", text: `${newId} [` },
+        { type: "text", text: "Draft", marks: [{ type: "italic" }] },
+        { type: "text", text: "]" },
+      ];
       const parentEmpty = editor.state.selection.$from.parent.content.size === 0;
-      const chain = editor.chain().focus();
-      if (!parentEmpty) chain.splitBlock();
-      chain
-        .setNode("heading", { level })
-        .insertContent([
-          { type: "text", text: `${newId} [` },
-          { type: "text", text: "Draft", marks: [{ type: "italic" }] },
-          { type: "text", text: "]" },
-        ])
-        .run();
-      // Cursor between the ID and the status bracket, ready for the title.
-      editor
-        .chain()
-        .setTextSelection(editor.state.selection.from - " [Draft]".length)
-        .scrollIntoView()
-        .run();
+      if (parentEmpty) {
+        // "/" on a fresh line: convert the empty block in place.
+        editor.chain().focus().setNode("heading", { level }).insertContent(headingContent).run();
+        editor
+          .chain()
+          .setTextSelection(editor.state.selection.from - " [Draft]".length)
+          .scrollIntoView()
+          .run();
+      } else {
+        // Non-empty block: NEVER convert it (any remainder — text, soft
+        // breaks — would become heading content; a soft break inside a
+        // heading corrupted status detection, user report 2026-09-01).
+        // Split at the caret and insert a standalone heading between the
+        // halves.
+        editor.chain().focus().splitBlock().run();
+        const boundary = editor.state.selection.$from.before();
+        editor
+          .chain()
+          .insertContentAt(boundary, {
+            type: "heading",
+            attrs: { level },
+            content: headingContent,
+          })
+          .setTextSelection(boundary + 1 + `${newId}`.length)
+          .scrollIntoView()
+          .run();
+      }
     },
   };
 }

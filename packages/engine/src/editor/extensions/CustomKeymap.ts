@@ -70,7 +70,17 @@ export const CustomKeymap = Extension.create({
           const softBreak = state.schema.nodes.softBreak;
           if (!softBreak) return false;
           if (dispatch) {
-            tr.replaceSelectionWith(softBreak.create()).scrollIntoView();
+            // Enter at the START of a line means "push this line down" — the
+            // caret stays on the new empty line ABOVE (before the inserted
+            // break), matching what the user sees and intends.
+            const atLineStart =
+              $from.parentOffset === 0 || $from.nodeBefore?.type.name === "softBreak";
+            const pos = $from.pos;
+            tr.replaceSelectionWith(softBreak.create());
+            if (atLineStart) {
+              tr.setSelection(TextSelection.create(tr.doc, pos));
+            }
+            tr.scrollIntoView();
           }
           return true;
         });

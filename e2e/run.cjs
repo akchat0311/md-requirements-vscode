@@ -1360,6 +1360,69 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 21 (regression, user report 2026-09-01): the full sequence —
+    // heading, Enter, "line2", Enter at line2's start (push down), slash-
+    // insert a requirement on the freed line. The heading must be standalone
+    // (no swallowed text, no newline inside it, no &#xA;, no repeated
+    // [Draft]), with line2 intact below.
+    const SDOC2 = "### TRANS_feat_012 [*Draft*]\n\nline2\n";
+    const page = await openEditor(browser, port, SDOC2, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    // Caret at the START of "line2"
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((n, p) => {
+        if (n.isText && n.text.includes("line2")) pos = p + n.text.indexOf("line2");
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter"); // push line2 down; caret on empty line
+    await page.keyboard.type("/req", { delay: 30 });
+    await page
+      .waitForFunction(
+        () => [...document.querySelectorAll("[role=option]")].some((el) => el.textContent.includes("New Requirement")),
+        null,
+        { timeout: 5000 },
+      )
+      .catch(() => {});
+    await page.keyboard.press("Enter");
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("TRANS_feat_013") ? true : undefined;
+        },
+        null,
+        { timeout: 8000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    const draftCount = md === null ? 0 : (md.match(/\[\*Draft\*\]/g) ?? []).length;
+    ok = check(
+      "slash-insert before existing text yields a standalone heading",
+      md !== null &&
+        md.includes("### TRANS_feat_013 [*Draft*]\n\nline2") &&
+        !md.includes("&#xA;") &&
+        draftCount === 2,
+      JSON.stringify({ md, draftCount }),
+    ) && ok;
+
+    // Give the auto-inserter time to run amok if it were going to.
+    await page.waitForTimeout(1200);
+    const finalDrafts = await page.evaluate(
+      () => (window.__mdreqEditor.state.doc.textContent.match(/\[Draft\]/g) ?? []).length,
+    );
+    ok = check(
+      "no runaway [Draft] repetition",
+      finalDrafts === 2,
+      `found ${finalDrafts} [Draft] occurrences`,
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

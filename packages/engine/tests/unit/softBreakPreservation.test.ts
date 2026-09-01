@@ -116,6 +116,42 @@ describe("soft break handling through the live editor", () => {
     expect(serializeDocToMarkdown(collapseSoftBreaks(doc))).toBe("a\nb\n");
   });
 
+  it("headings never get softBreaks — a newline there becomes a space", () => {
+    // Regression (user report, 2026-09-01): a heading containing a line
+    // break serialized as &#xA; and sent the [Draft] auto-inserter into a
+    // runaway loop. Expansion normalizes heading newlines to spaces (this
+    // also repairs damaged files on open); collapse turns any editing-time
+    // softBreak in a heading into a space.
+    const damaged = expandSoftBreaks(
+      parseMarkdownToDoc("### TRANS_feat_013 [*Draft*]&#xA;line2\n"),
+    );
+    const kinds: string[] = [];
+    const walk = (n: PMNode): void => {
+      kinds.push(n.type ?? "");
+      for (const c of n.content ?? []) walk(c);
+    };
+    walk(damaged);
+    expect(kinds).not.toContain("softBreak");
+
+    const headingWithBreak: PMNode = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 3 },
+          content: [
+            { type: "text", text: "TRANS_feat_013 [Draft]" },
+            { type: "softBreak" },
+            { type: "text", text: "line2" },
+          ],
+        },
+      ],
+    };
+    expect(serializeDocToMarkdown(collapseSoftBreaks(headingWithBreak))).toBe(
+      "### TRANS_feat_013 [Draft] line2\n",
+    );
+  });
+
   it("never touches code blocks — their newlines are literal content", () => {
     // Regression: expansion used to descend into code fences, where the
     // schema drops softBreak nodes — mermaid/code sources lost all newlines.

@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "commonjs",
   "publisher": "akchattapayaksh",
   "engines": {

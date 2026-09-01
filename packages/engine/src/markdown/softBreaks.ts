@@ -22,9 +22,19 @@ export function expandSoftBreaks(node: PMNode): PMNode {
   if (node.type !== undefined && LITERAL_TEXT_NODES.has(node.type)) return node;
   const out: PMNode = { ...node };
   if (node.content) {
+    // Soft breaks belong to PARAGRAPHS only. Headings are single-line
+    // constructs — a newline there (e.g. an &#xA; entity in a damaged file)
+    // is normalized to a space, never a softBreak node (a break inside a
+    // heading broke status detection and triggered a runaway [Draft]
+    // auto-insert loop; user report 2026-09-01).
+    const isParagraph = node.type === "paragraph";
     const children: PMNode[] = [];
     for (const child of node.content) {
       if (child.type === "text" && typeof child.text === "string" && child.text.includes("\n")) {
+        if (!isParagraph) {
+          children.push({ ...child, text: child.text.replace(/\n+/g, " ") });
+          continue;
+        }
         const segments = child.text.split("\n");
         segments.forEach((segment, i) => {
           if (segment.length > 0) children.push({ ...child, text: segment });
@@ -58,9 +68,13 @@ export function collapseSoftBreaks(node: PMNode): PMNode {
     const deduped = children.filter(
       (child, i) => !(child.type === "softBreak" && children[i - 1]?.type === "softBreak"),
     );
+    // In a paragraph a softBreak collapses to "\n"; anywhere else (a heading
+    // that acquired one through editing) it collapses to a space — headings
+    // must stay single-line in markdown.
+    const lineBreakText = node.type === "paragraph" ? "\n" : " ";
     out.content = deduped.map((child) =>
       child.type === "softBreak"
-        ? ({ type: "text", text: "\n", ...(child.marks ? { marks: child.marks } : {}) } as PMNode)
+        ? ({ type: "text", text: lineBreakText, ...(child.marks ? { marks: child.marks } : {}) } as PMNode)
         : collapseSoftBreaks(child),
     );
   }
