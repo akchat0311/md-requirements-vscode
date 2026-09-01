@@ -132,6 +132,10 @@ describe("ordered list: clipboard-sourced numbering must not become persistent s
         content: [
           {
             type: "orderedList",
+            // The parser always writes `start` alongside item values —
+            // a faithful fixture must carry both (the renumber plugin
+            // trusts `start` over the first item's value).
+            attrs: { start: 2 },
             content: [
               { type: "listItem", attrs: { value: 2 }, content: [{ type: "paragraph", content: [{ type: "text", text: "B" }] }] },
             ],

@@ -1465,6 +1465,46 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 23 (user report, 2026-09-01): deleting a mid-list item's text
+    // and backspacing it out of the list splits the list — the tail must
+    // renumber from 1 in the FILE, not keep its stale source values
+    // ("1." followed by "3) 4) 5)").
+    const LDOC = "1. canonical ordered list\n2. ghgj\n3. tyui\n4. qwert\n5. try pressing Enter\n";
+    const page = await openEditor(browser, port, LDOC);
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let from = -1;
+      let to = -1;
+      e.state.doc.descendants((n, p) => {
+        if (n.isText && n.text === "ghgj") {
+          from = p;
+          to = p + n.nodeSize;
+        }
+      });
+      e.chain().focus().setTextSelection({ from, to }).run();
+    });
+    await page.keyboard.press("Backspace"); // clear the item's text
+    await page.keyboard.press("Backspace"); // lift the empty item out of the list
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && !e.markdown.includes("ghgj") && !e.markdown.includes("2.") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "deleting a mid-list item renumbers the split-off tail from 1",
+      md !== null && md.includes("1. canonical ordered list") && md.includes("1) tyui\n2) qwert\n3) try pressing Enter"),
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

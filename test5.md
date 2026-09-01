@@ -5,10 +5,23 @@ real requirements document; edit any word in it, save, and the git diff
 should show only this block changed — with the line wraps preserved.
 
 hgfhjhg.
+new req
+
+### TRANS_feat_012 [*Draft*]
+
+### TRANS_feat_013 [*Draft*]
+
+### TRANS_feat_015 [*Draft*]
+
+### TRANS_feat_014 [*Draft*]
 
 line2
 
 (TRANS_[A-Za-z0-9]+_\d{3})
+
+### TRANS_feat_016 [*Draft*]
+
+### TRANS_feat_017 [*Draft*]
 
 ## 1. Inline formatting
 
@@ -103,8 +116,16 @@ some text
    * nested with three-space indent
 * second bullet
 
-1) ordered with paren style
-2) second item
+1. ordered with paren style
+2.
+3. canonical ordered list
+4. try pressing Enter at the end of this item to add a third
+5. second item
+6.
+7.
+8. dsfhfkj
+9.
+10. hkjfhgf
 
 - canonical bullet list
   - canonical nested item

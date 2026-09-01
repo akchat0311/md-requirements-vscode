@@ -107,11 +107,17 @@ function orderedListRenumberPlugin(): Plugin {
         });
         const allOnes = stored.length >= 2 && stored.every((v) => v === stored[0]);
         const first = node.child(0);
+        // The list's own `start` attr outranks the first item's stored value:
+        // the parser sets `start` from the source for authored non-1 starts,
+        // while an edit that SPLITS a list copies the original node's attrs —
+        // so a split-off tail carrying values [3,4,5] with start=1 renumbers
+        // to [1,2,3] instead of being mistaken for an authored 3-start (user
+        // report, 2026-09-01: deleting a mid-list item left "1." + "3) 4) 5)").
         const start =
-          typeof first.attrs.value === "number"
-            ? (first.attrs.value as number)
-            : typeof node.attrs.start === "number"
-              ? (node.attrs.start as number)
+          typeof node.attrs.start === "number"
+            ? (node.attrs.start as number)
+            : typeof first.attrs.value === "number"
+              ? (first.attrs.value as number)
               : 1;
 
         let childPos = pos + 1;
