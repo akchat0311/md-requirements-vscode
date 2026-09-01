@@ -1,5 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
+import { useEditorBehaviorStore } from "@/stores/editorBehaviorStore";
+import { SuggestionPluginKey } from "@tiptap/suggestion";
 
 export const CustomKeymap = Extension.create({
   name: "customKeymap",
@@ -19,7 +21,14 @@ export const CustomKeymap = Extension.create({
       // body text (user report, 2026-09-01).
       "Enter": () => {
         if (this.editor.isActive("table")) return true;
-        return this.editor.commands.command(({ state, tr, dispatch }) => {
+
+        // The slash-command menu is open: Enter selects the highlighted item.
+        if (SuggestionPluginKey.getState(this.editor.state)?.active) return false;
+
+        // Headings never split (any mode): Enter finishes the heading and
+        // opens a paragraph below (see 2026-09-01 report — splitting dragged
+        // the " [Draft]" status into the body text).
+        const headingHandled = this.editor.commands.command(({ state, tr, dispatch }) => {
           const { $from, empty } = state.selection;
           if (!empty || $from.parent.type.name !== "heading") return false;
           const paragraph = state.schema.nodes.paragraph.createAndFill();
@@ -28,6 +37,40 @@ export const CustomKeymap = Extension.create({
             const after = $from.after();
             tr.insert(after, paragraph);
             tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView();
+          }
+          return true;
+        });
+        if (headingHandled) return true;
+
+        // "line" mode (default): in a TOP-LEVEL paragraph, Enter inserts a
+        // soft line break — a single \n in the file, no blank line. Enter on
+        // the resulting empty line upgrades it to a real paragraph break.
+        // Lists, blockquotes, callouts, code keep their native Enter.
+        if (useEditorBehaviorStore.getState().enterMode !== "line") return false;
+        return this.editor.commands.command(({ state, tr, dispatch }) => {
+          const { $from, empty } = state.selection;
+          if (!empty || $from.parent.type.name !== "paragraph") return false;
+          if ($from.depth !== 1) return false; // only top-level paragraphs
+          const parent = $from.parent;
+          if (parent.content.size === 0) return false; // empty para → default
+
+          const before = $from.nodeBefore;
+          const atLineStartAfterBreak = before?.type.name === "softBreak";
+          const atParentEnd = $from.parentOffset === parent.content.size;
+          if (atLineStartAfterBreak && atParentEnd) {
+            // Second Enter on the empty line: replace the trailing soft
+            // break with a real paragraph split.
+            if (dispatch) {
+              tr.delete($from.pos - 1, $from.pos);
+              tr.split(tr.mapping.map($from.pos));
+              tr.scrollIntoView();
+            }
+            return true;
+          }
+          const softBreak = state.schema.nodes.softBreak;
+          if (!softBreak) return false;
+          if (dispatch) {
+            tr.replaceSelectionWith(softBreak.create()).scrollIntoView();
           }
           return true;
         });

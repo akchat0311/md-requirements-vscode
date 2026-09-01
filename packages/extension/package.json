@@ -2,7 +2,7 @@
   "name": "md-requirements-editor",
   "displayName": "Markdown Requirements Editor",
   "description": "Typora-style editable preview for markdown requirements documents \u2014 review comments, traceability, and quality checks",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "commonjs",
   "publisher": "akchattapayaksh",
   "engines": {
@@ -61,6 +61,15 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Flags for `#mdreq.requirementPatternRegex#`, e.g. `i` for case-insensitive matching."
+        },
+        "mdreq.newlineBehavior": {
+          "type": "string",
+          "enum": [
+            "line",
+            "paragraph"
+          ],
+          "default": "line",
+          "markdownDescription": "What Enter does in a paragraph. `line` (default): one newline in the file; press Enter again on the empty line for a paragraph break (blank line). `paragraph`: classic markdown \u2014 Enter always starts a new paragraph; use Shift+Enter for a line break."
         }
       }
     },

@@ -4,6 +4,10 @@ This paragraph is soft-wrapped across three lines, exactly like prose in a
 real requirements document; edit any word in it, save, and the git diff
 should show only this block changed — with the line wraps preserved.
 
+hgfhjhg.
+
+line2
+
 (TRANS_[A-Za-z0-9]+_\d{3})
 
 ## 1. Inline formatting
@@ -92,6 +96,8 @@ export function greet(name: string): string {
 These use `*` bullets, 3-space nesting, and `1)` numbering on purpose.
 Edit something ELSE in this file, save, and `git diff` must show none of
 these lines changed:
+
+some text
 
 * first bullet with star marker
    * nested with three-space indent

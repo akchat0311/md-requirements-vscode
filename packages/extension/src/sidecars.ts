@@ -195,7 +195,11 @@ export function readEditorConfig(): import("./protocol").EditorConfig {
       // Surface syntax errors here; the engine additionally requires a capture
       // group and treats any invalid pattern as unconfigured.
       new RegExp(regexSource, regexFlags);
-      return { requirementPattern: { mode: "regex", source: regexSource, flags: regexFlags } };
+      return {
+        requirementPattern: { mode: "regex", source: regexSource, flags: regexFlags },
+        enterMode:
+          cfg.get<string>("newlineBehavior", "line") === "paragraph" ? "paragraph" : "line",
+      };
     } catch (e) {
       if (warnedInvalidRegex !== regexSource) {
         warnedInvalidRegex = regexSource;
@@ -208,7 +212,9 @@ export function readEditorConfig(): import("./protocol").EditorConfig {
     }
   }
   const example = cfg.get<string>("requirementPattern", "").trim();
+  const enterMode = cfg.get<string>("newlineBehavior", "line") === "paragraph" ? "paragraph" as const : "line" as const;
   return {
     requirementPattern: example.length > 0 ? { mode: "simple", example } : null,
+    enterMode,
   };
 }

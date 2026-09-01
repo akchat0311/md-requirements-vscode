@@ -22,7 +22,18 @@ const HTML = `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/editor.css">
 <script>
 window.__messages = [];
-window.acquireVsCodeApi = () => ({ postMessage: (m) => window.__messages.push(JSON.parse(JSON.stringify(m))) });
+window.__docVersion = 1;
+// Faithful host stub: a real VS Code host acks every applied edit — without
+// the ack the bridge's one-in-flight slot stays occupied and no later edit
+// can ever send (found via scenario 20, the first multi-edit scenario).
+window.acquireVsCodeApi = () => ({
+  postMessage: (m) => {
+    window.__messages.push(JSON.parse(JSON.stringify(m)));
+    if (m.type === "edit") {
+      setTimeout(() => window.postMessage({ type: "ack", version: ++window.__docVersion }, "*"), 10);
+    }
+  },
+});
 </script>
 </head><body><div id="editor"></div><script type="module" src="/editor.js"></script></body></html>`;
 
@@ -75,7 +86,10 @@ async function openEditor(browser, port, markdown, config) {
       ),
     {
       md: markdown,
-      cfg: config ?? { requirementPattern: { mode: "simple", example: "REQ_001" } },
+      cfg: {
+        enterMode: "line",
+        ...(config ?? { requirementPattern: { mode: "simple", example: "REQ_001" } }),
+      },
     },
   );
   await page.waitForSelector(".ProseMirror p");
@@ -1236,8 +1250,8 @@ function check(name, cond, detail) {
       .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
       .catch(() => null);
     ok = check(
-      "Enter at a soft-wrap adds exactly one break (no phantom line)",
-      md === "aaa first line\n\nxxx new text\nbbb second line\nccc third line\n",
+      "Enter at a soft-wrap inserts one line (line mode, no phantom line)",
+      md === "aaa first line\nxxx new text\nbbb second line\nccc third line\n",
       JSON.stringify(md),
     ) && ok;
     await page.close();
@@ -1284,6 +1298,63 @@ function check(name, cond, detail) {
     ok = check(
       "Enter in a heading opens a paragraph below — heading stays intact",
       md === "### TRANS_feat_010 Existing requirement [*Draft*]\n\nsome text\n\nExisting body.\n",
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 20 (design change, user request 2026-09-01): Enter = one
+    // newline in the file; double-Enter = paragraph break. Replays the
+    // user's exact case (hgfhjhg. / line2).
+    const page = await openEditor(browser, port, "hgfhjhg.\n");
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((n, p) => {
+        if (n.isText && n.text.includes("hgfhjhg.")) pos = p + n.nodeSize;
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("line2", { delay: 20 });
+    let md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("line2") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "Enter writes exactly one newline (no blank line)",
+      md === "hgfhjhg.\nline2\n",
+      JSON.stringify(md),
+    ) && ok;
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("para2", { delay: 20 });
+    md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("para2") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    if (md !== "hgfhjhg.\nline2\n\npara2\n") {
+      console.error("      all edits:", await page.evaluate(() => JSON.stringify(window.__messages.filter((m) => m.type === "edit").map((m) => m.markdown))));
+    }
+    ok = check(
+      "double Enter makes a paragraph break (blank line)",
+      md === "hgfhjhg.\nline2\n\npara2\n",
       JSON.stringify(md),
     ) && ok;
     await page.close();

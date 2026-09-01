@@ -24,6 +24,13 @@ export interface EditorConfig {
     | { mode: "simple"; example: string }
     | { mode: "regex"; source: string; flags: string }
     | null;
+  /**
+   * Enter-key behavior in top-level paragraphs. "line" (default): Enter is a
+   * single newline in the file; Enter again on the empty line makes a
+   * paragraph break. "paragraph": classic markdown — Enter always starts a
+   * new paragraph (blank line); Shift+Enter for a line break.
+   */
+  enterMode: "line" | "paragraph";
 }
 
 /** Host → webview. All text payloads are LF-normalized. */

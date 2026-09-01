@@ -6,6 +6,7 @@ import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import { ensureKatex } from "@/editor/utils/katexLoader";
 import { useConfigStore } from "@/stores/configStore";
 import { useStatusConfigStore } from "@/stores/statusConfigStore";
+import { useEditorBehaviorStore } from "@/stores/editorBehaviorStore";
 import { initSidecars, onSidecarChanged } from "./sidecars";
 import { buildCsv } from "./exports";
 import { setImageBase } from "./WebviewImage";
@@ -100,6 +101,7 @@ function applyExternal(text: string): void {
 }
 
 function applyConfig(config: EditorConfig): void {
+  useEditorBehaviorStore.getState().setEnterMode(config.enterMode ?? "line");
   const store = useConfigStore.getState();
   const pattern = config.requirementPattern;
   if (pattern === null) {
