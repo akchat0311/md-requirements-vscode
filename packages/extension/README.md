@@ -39,7 +39,7 @@ Open any `.md` file with **right-click → Open With… → Requirements Editor*
 - **Quality engine**: 17 requirement-writing rules (duplicate IDs, weak
   modal verbs, missing statuses, …) as native Problems-panel diagnostics
 - **Renumbering**: fix duplicate/out-of-order IDs in one click — including
-  per-feature groups for conventions like `TRANS_<Feature>_001`
+  per-feature groups for conventions like `FEAT_<Feature>_001`
 - Import/export: review & traceability JSON and CSV, outline sidebar,
   find & replace (⌘F / Ctrl+F), word count in the status bar
 
@@ -48,7 +48,7 @@ Open any `.md` file with **right-click → Open With… → Requirements Editor*
 | Setting | Purpose |
 | - | - |
 | `mdreq.requirementPattern` | Example ID (simple mode), e.g. `REQ_001` |
-| `mdreq.requirementPatternRegex` | Advanced: regex with the ID in group 1, e.g. `(TRANS_[A-Za-z0-9]+_\d{3})` — takes precedence |
+| `mdreq.requirementPatternRegex` | Advanced: regex with the ID in group 1, e.g. `(FEAT_[A-Za-z0-9]+_\d{3})` — takes precedence |
 | `mdreq.requirementPatternRegexFlags` | Regex flags, e.g. `i` |
 
 ## Sidecar files

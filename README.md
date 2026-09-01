@@ -39,7 +39,7 @@ browser-based MD_Editor, fully interoperable.
 | Setting | Purpose |
 | - | - |
 | `mdreq.requirementPattern` | Example requirement ID (simple mode), e.g. `REQ_001` |
-| `mdreq.requirementPatternRegex` | Advanced: regex with the ID in group 1, e.g. `(TRANS_[A-Za-z0-9]+_\d{3})`; takes precedence |
+| `mdreq.requirementPatternRegex` | Advanced: regex with the ID in group 1, e.g. `(FEAT_[A-Za-z0-9]+_\d{3})`; takes precedence |
 | `mdreq.requirementPatternRegexFlags` | Regex flags, e.g. `i` |
 
 ## Develop
