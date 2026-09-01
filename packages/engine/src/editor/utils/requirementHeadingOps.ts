@@ -112,14 +112,18 @@ export function rewriteHeadingStatus(
     innerPos < absTo ? marksAt(tr, innerPos) : [];
 
   const { schema } = tr.doc.type;
-  const nodes: PMNode[] =
-    innerMarks.length > 0
-      ? [
-          schema.text("["),
-          schema.text(newLabel, [...innerMarks]),
-          schema.text("]"),
-        ]
-      : [schema.text("[" + newLabel + "]")];
+  // Statuses render italic by default ("[*Draft*]" in markdown); preserve any
+  // additional marks the previous label carried.
+  const italic = schema.marks.italic;
+  const labelMarks = [...innerMarks];
+  if (italic && !labelMarks.some((m) => m.type === italic)) {
+    labelMarks.push(italic.create());
+  }
+  const nodes: PMNode[] = [
+    schema.text("["),
+    schema.text(newLabel, labelMarks),
+    schema.text("]"),
+  ];
 
   tr.replaceWith(absFrom, absTo, nodes);
   return true;
@@ -127,7 +131,8 @@ export function rewriteHeadingStatus(
 
 /**
  * Appends a new [Status] bracket to a heading that currently has none.
- * Inserted as plain text — there is no prior formatting to preserve.
+ * The label is italic by default ("[*Draft*]" in markdown); the brackets
+ * stay plain.
  */
 export function insertHeadingStatus(
   tr: Transaction,
@@ -140,5 +145,10 @@ export function insertHeadingStatus(
   // while replaceWith uses the marks of the supplied content node — none here.
   const { schema } = tr.doc.type;
   const insertAt = headingPos + 1 + headingNode.textContent.length;
-  tr.replaceWith(insertAt, insertAt, schema.text(" [" + label + "]"));
+  const italic = schema.marks.italic;
+  tr.replaceWith(insertAt, insertAt, [
+    schema.text(" ["),
+    schema.text(label, italic ? [italic.create()] : []),
+    schema.text("]"),
+  ]);
 }

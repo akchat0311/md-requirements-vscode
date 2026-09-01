@@ -1094,6 +1094,11 @@ function check(name, cond, detail) {
         md !== null && md.includes("TRANS_Parking_003"),
         md === null ? "no edit with TRANS_Parking_003" : md.slice(0, 200),
       ) && ok;
+      ok = check(
+        "inserted status is italic by default ([*Draft*])",
+        md !== null && md.includes("TRANS_Parking_003 [*Draft*]"),
+        md === null ? "no md" : md.slice(0, 300),
+      ) && ok;
     }
     await page.close();
   }
@@ -1153,6 +1158,50 @@ function check(name, cond, detail) {
       "new requirement lands in the cursor's section, not an earlier one",
       inSectionThree,
       md === null ? "no insert observed" : md.slice(0, 400),
+    ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 17: resizable side panels + relocated dashboard button.
+    const page = await openEditor(browser, port, "# T\n\nBody.\n\n## REQ_001 Something [draft]\n\nB.\n");
+    const before = await page.evaluate(
+      () => document.querySelector("#outline-panel").getBoundingClientRect().width,
+    );
+    const handle = page.locator(".cursor-col-resize").first();
+    const box = await handle.boundingBox();
+    await page.mouse.move(box.x + 1, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 121, box.y + 200, { steps: 5 });
+    await page.mouse.up();
+    const after = await page.evaluate(
+      () => document.querySelector("#outline-panel").getBoundingClientRect().width,
+    );
+    ok = check(
+      "outline panel resizes by dragging its handle",
+      after > before + 100,
+      `before=${before} after=${after}`,
+    ) && ok;
+
+    // Lowercase status resolves (case-insensitive): badge chip shows DRAFT.
+    const chipDraft = await page.evaluate(() =>
+      /draft/i.test(
+        [...document.querySelectorAll(".ProseMirror h2 button, .ProseMirror h2 span")]
+          .map((e) => e.textContent)
+          .join(" "),
+      ),
+    );
+    ok = check("lowercase [draft] resolves to the Draft status chip", chipDraft, "no chip") && ok;
+
+    // Dashboard button lives bottom-right — clear of the drawer close and find bar.
+    const btnBox = await page.evaluate(() => {
+      const b = document.querySelector("#open-dashboard").getBoundingClientRect();
+      return { top: b.top, vh: window.innerHeight };
+    });
+    ok = check(
+      "dashboard button sits in the bottom half of the viewport",
+      btnBox.top > btnBox.vh / 2,
+      JSON.stringify(btnBox),
     ) && ok;
     await page.close();
   }

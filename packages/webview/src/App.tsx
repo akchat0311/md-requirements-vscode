@@ -10,6 +10,7 @@ import { TraceabilityDrawer } from "@/layout/TraceabilityDrawer";
 import { Dashboard } from "@/layout/Dashboard";
 import { FindReplaceBar } from "@/layout/FindReplaceBar";
 import { OutlinePanel } from "@/layout/OutlinePanel";
+import { ResizeHandle } from "@/layout/ResizeHandle";
 import { useCommentDrawerStore } from "@/stores/commentDrawerStore";
 import { useTraceabilityPanelStore } from "@/stores/traceabilityPanelStore";
 import { useConfigStore } from "@/stores/configStore";
@@ -60,6 +61,10 @@ export function App() {
   // The editor stays mounted (hidden) while the dashboard is shown.
   const [view, setView] = useState<"editor" | "dashboard">("editor");
   const [outlineOpen, setOutlineOpen] = useState(true);
+  const [outlineWidth, setOutlineWidth] = useState(260);
+  const [rightWidth, setRightWidth] = useState(380);
+  const clampOutline = (w: number) => Math.max(180, Math.min(520, w));
+  const clampRight = (w: number) => Math.max(280, Math.min(680, w));
   const [findOpen, setFindOpen] = useState(false);
   const [findShowReplace, setFindShowReplace] = useState(false);
   useEffect(() => {
@@ -127,10 +132,11 @@ export function App() {
           {outlineOpen && (
             <div
               id="outline-panel"
-              className="flex h-full w-[260px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-paper)]"
+              style={{ width: outlineWidth }}
+              className="flex h-full shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-paper)]"
             >
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <OutlinePanel width={260} noWidthStyle />
+                <OutlinePanel width={outlineWidth} noWidthStyle />
               </div>
               <button
                 type="button"
@@ -141,6 +147,12 @@ export function App() {
                 « Hide outline
               </button>
             </div>
+          )}
+          {outlineOpen && (
+            <ResizeHandle
+              onDelta={(d) => setOutlineWidth((w) => clampOutline(w + d))}
+              className="w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--color-accent)]/40"
+            />
           )}
           <div className="min-w-0 flex-1 overflow-y-auto">
             <FindReplaceBar
@@ -155,13 +167,25 @@ export function App() {
               </div>
             </div>
           </div>
+          {(drawerRecord || tracePanelReqId) && (
+            <ResizeHandle
+              onDelta={(d) => setRightWidth((w) => clampRight(w - d))}
+              className="w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--color-accent)]/40"
+            />
+          )}
           {drawerRecord && (
-            <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
+            <div
+              style={{ width: rightWidth }}
+              className="h-full shrink-0 overflow-hidden border-l border-[var(--color-border)]"
+            >
               <CommentDrawer record={drawerRecord} onClose={closeDrawer} />
             </div>
           )}
           {!drawerRecord && tracePanelReqId && (
-            <div className="h-full w-[380px] shrink-0 overflow-hidden border-l border-[var(--color-border)]">
+            <div
+              style={{ width: rightWidth }}
+              className="h-full shrink-0 overflow-hidden border-l border-[var(--color-border)]"
+            >
               <TraceabilityDrawer reqId={tracePanelReqId} onClose={closeTracePanel} />
             </div>
           )}
@@ -179,7 +203,7 @@ export function App() {
           <button
             type="button"
             id="open-dashboard"
-            className="fixed right-4 top-3 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
+            className="fixed bottom-8 right-4 z-40 rounded-md border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-text)] shadow-sm hover:border-[var(--color-accent)]"
             onClick={() => setView("dashboard")}
           >
             Dashboard

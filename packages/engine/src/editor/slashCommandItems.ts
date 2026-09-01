@@ -73,7 +73,11 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
       if (!parentEmpty) chain.splitBlock();
       chain
         .setNode("heading", { level })
-        .insertContent(`${newId} [Draft]`)
+        .insertContent([
+          { type: "text", text: `${newId} [` },
+          { type: "text", text: "Draft", marks: [{ type: "italic" }] },
+          { type: "text", text: "]" },
+        ])
         .run();
       // Cursor between the ID and the status bracket, ready for the title.
       editor
