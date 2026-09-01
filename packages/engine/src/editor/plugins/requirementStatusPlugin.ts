@@ -7,7 +7,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { useStatusConfigStore } from "@/stores/statusConfigStore";
 import { useReviewCommentsStore } from "@/stores/reviewCommentsStore";
 import { getRequirementStatuses } from "@/services/requirementStatusService";
-import { compileRequirementPattern, matchRequirementId } from "@/editor/utils/requirementOps";
+import { compileRequirementPattern, matchRequirementId, collectDocumentVariants } from "@/editor/utils/requirementOps";
 import type { CompiledPattern } from "@/editor/utils/requirementOps";
 import {
   rewriteHeadingStatus,
@@ -365,23 +365,27 @@ function createVariantWidget(range: StatusRange): (view: EditorView) => HTMLElem
       input.addEventListener("blur", () => finish(false));
     };
 
-    const startMenu = (vocabulary: string[]) => {
+    const startMenu = (options: string[]) => {
       const menu = document.createElement("ul");
       menu.className = "req-status-menu";
       menu.setAttribute("role", "listbox");
       menu.setAttribute("aria-label", "Select variant");
-      const entries: Array<{ label: string; value: string | null }> = vocabulary.map((v) => ({ label: v, value: v }));
+      // value: a variant to apply · "" removes · null opens the free-text
+      // input for a brand-new variant name.
+      const entries: Array<{ label: string; value: string | null }> = options.map((v) => ({ label: v, value: v }));
+      entries.push({ label: "＋ New variant…", value: null });
       if (hasVariant) entries.push({ label: "✕ Remove variant", value: "" });
       for (const entry of entries) {
         const li = document.createElement("li");
         li.className = "req-status-option";
         li.setAttribute("role", "option");
-        li.setAttribute("aria-selected", String(entry.value === range.variantText));
+        li.setAttribute("aria-selected", String(entry.value !== null && entry.value === range.variantText));
         li.textContent = entry.label;
         li.addEventListener("mousedown", (e) => {
           e.preventDefault();
           closeMenu();
-          commit(entry.value ?? "");
+          if (entry.value === null) startInput();
+          else commit(entry.value);
         });
         menu.appendChild(li);
       }
@@ -403,8 +407,14 @@ function createVariantWidget(range: StatusRange): (view: EditorView) => HTMLElem
     btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      // Menu options: variants already used in this document (document
+      // order) plus any configured vocabulary values not yet in use (user
+      // request, 2026-09-02). With no options at all, go straight to the
+      // free-text input.
+      const docVariants = collectDocumentVariants(view.state.doc);
       const vocabulary = useConfigStore.getState().variantVocabulary;
-      if (vocabulary.length > 0) startMenu(vocabulary);
+      const options = [...docVariants, ...vocabulary.filter((v) => !docVariants.includes(v))];
+      if (options.length > 0) startMenu(options);
       else startInput();
     });
 
@@ -460,10 +470,16 @@ function autoInsertDraftStatus(view: EditorView): void {
 
   if (pending.length === 0) return;
 
+  // Variant inheritance (user request, 2026-09-02): a newly typed
+  // requirement heading also receives the document's variant when exactly
+  // one distinct variant is in use.
+  const docVariants = collectDocumentVariants(state.doc);
+  const inheritedVariant = docVariants.length === 1 ? docVariants[0] : undefined;
+
   const tr = state.tr;
   for (let i = pending.length - 1; i >= 0; i--) {
     const { offset, node } = pending[i];
-    insertHeadingStatus(tr, offset, node, draftStatus.label);
+    insertHeadingStatus(tr, offset, node, draftStatus.label, inheritedVariant);
   }
   tr.setMeta("addToHistory", false);
   view.dispatch(tr);

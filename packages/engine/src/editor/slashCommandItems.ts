@@ -2,7 +2,7 @@ import type { Editor, Range } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { useConfigStore } from "@/stores/configStore";
 import { deriveOutline, flattenOutline } from "@/editor/utils/deriveOutline";
-import { compileRequirementPattern, analyzeRequirements, nextAvailableId, nextAvailableIdForStem } from "@/editor/utils/requirementOps";
+import { compileRequirementPattern, analyzeRequirements, nextAvailableId, nextAvailableIdForStem, collectDocumentVariants } from "@/editor/utils/requirementOps";
 
 export interface SlashCommandItem {
   id: string;
@@ -65,19 +65,28 @@ function makeRequirementSlashItem(): SlashCommandItem | null {
 
       const level = idAnchor?.node.level ?? 3;
 
+      // Variant inheritance (user request, 2026-09-02): when the document's
+      // requirements use exactly ONE distinct variant, a new requirement
+      // gets it by default. With several variants in play nothing is
+      // guessed — the "+ Variant" chip offers them as a dropdown instead.
+      const docVariants = collectDocumentVariants(editor.state.doc);
+      const inheritedVariant = docVariants.length === 1 ? docVariants[0] : null;
+
       editor.chain().focus().deleteRange(range).run();
       const headingContent = [
         { type: "text", text: `${newId} [` },
         { type: "text", text: "Draft", marks: [{ type: "italic" }] },
-        { type: "text", text: "]" },
+        { type: "text", text: inheritedVariant ? `] [${inheritedVariant}]` : "]" },
       ];
       const parentEmpty = editor.state.selection.$from.parent.content.size === 0;
       if (parentEmpty) {
         // "/" on a fresh line: convert the empty block in place.
         editor.chain().focus().setNode("heading", { level }).insertContent(headingContent).run();
+        const suffixLen =
+          " [Draft]".length + (inheritedVariant ? ` [${inheritedVariant}]`.length : 0);
         editor
           .chain()
-          .setTextSelection(editor.state.selection.from - " [Draft]".length)
+          .setTextSelection(editor.state.selection.from - suffixLen)
           .scrollIntoView()
           .run();
       } else {

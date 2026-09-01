@@ -1576,6 +1576,121 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 25 (user request, 2026-09-02): variant inheritance. In a doc
+    // whose requirements use exactly one variant, "/" -> New Requirement
+    // produces a heading that already carries that variant. In a doc with
+    // TWO variants nothing is guessed, and the "+ Variant" ghost chip opens
+    // a menu listing both document variants plus "New variant…".
+    const IDOC = [
+      "## TRANS_Park_001 Engage [*Draft*] [V2]",
+      "",
+      "Body of the requirement.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, IDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      e.chain().focus().setTextSelection(e.state.doc.content.size - 1).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("/req", { delay: 30 });
+    await page.waitForFunction(
+      () => [...document.querySelectorAll("[role=option]")].some((el) => el.textContent.includes("New Requirement")),
+      null,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press("Enter");
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("TRANS_Park_002") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "slash-inserted requirement inherits the document's single variant",
+      md !== null && md.includes("TRANS_Park_002 [*Draft*] [V2]"),
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
+  {
+    // Scenario 25b: two variants in use -> no inheritance; the ghost
+    // "+ Variant" menu lists both document variants and "New variant…".
+    const MDOC = [
+      "## TRANS_Park_001 One [*Draft*] [V1]",
+      "",
+      "## TRANS_Park_002 Two [*Draft*] [V2]",
+      "",
+      "## TRANS_Park_003 Three [*Draft*]",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const page = await openEditor(browser, port, MDOC, {
+      requirementPattern: { mode: "regex", source: "(TRANS_[A-Za-z0-9]+_\\d{3})", flags: "" },
+    });
+    await page.waitForSelector(".req-variant-btn--add", { timeout: 6000 });
+    await page.evaluate(() => {
+      const h = [...document.querySelectorAll(".ProseMirror h2")].find((el) =>
+        el.textContent.includes("TRANS_Park_003"),
+      );
+      h.querySelector(".req-variant-btn--add").dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+    });
+    const menu = await page
+      .waitForFunction(
+        () => {
+          const opts = [...document.querySelectorAll(".req-variant-widget .req-status-option")].map(
+            (o) => o.textContent,
+          );
+          return opts.length > 0 ? opts : undefined;
+        },
+        null,
+        { timeout: 5000 },
+      )
+      .then((h) => h.jsonValue())
+      .catch(() => null);
+    ok = check(
+      "ghost + Variant menu lists both document variants and New variant…",
+      menu !== null && menu.includes("V1") && menu.includes("V2") && menu.some((t) => t.includes("New variant")),
+      JSON.stringify(menu),
+    ) && ok;
+    // Pick V1 from the menu -> the heading gains [V1] in the file.
+    await page.evaluate(() => {
+      const opt = [...document.querySelectorAll(".req-variant-widget .req-status-option")].find(
+        (o) => o.textContent === "V1",
+      );
+      opt.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    });
+    const md2 = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("TRANS_Park_003 Three [*Draft*] [V1]") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "picking a variant from the ghost menu writes it to the file",
+      md2 !== null && md2.includes("## TRANS_Park_003 Three [*Draft*] [V1]"),
+      JSON.stringify(md2),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);

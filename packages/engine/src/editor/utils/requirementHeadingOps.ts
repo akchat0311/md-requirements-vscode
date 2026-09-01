@@ -180,6 +180,7 @@ export function insertHeadingStatus(
   headingPos: number,
   headingNode: PMNode,
   label: string,
+  variant?: string,
 ): void {
   // Use replaceWith rather than insertText: insertText inherits the marks
   // active at the insertion position (e.g. italic from the preceding ID text),
@@ -199,11 +200,17 @@ export function insertHeadingStatus(
     return;
   }
   const insertAt = headingPos + 1 + text.length;
-  tr.replaceWith(insertAt, insertAt, [
+  const nodes = [
     schema.text(" ["),
     schema.text(label, labelMarks),
     schema.text("]"),
-  ]);
+  ];
+  // Optional inherited variant, appended plain in the same token insert
+  // (canonical order [Status] [Variant]; one undo step).
+  if (variant) {
+    nodes.push(schema.text(" ["), schema.text(variant), schema.text("]"));
+  }
+  tr.replaceWith(insertAt, insertAt, nodes);
 }
 
 /**

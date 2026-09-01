@@ -4,6 +4,8 @@ import type { RequirementStatus } from "@/types/requirementStatus";
 import type { RequirementPattern } from "@/stores/configStore";
 import { getNodeSectionRange, getSectionRange, renameHeading } from "@/editor/utils/outlineOps";
 import { parseHeadingFields, fieldsStartOffset, variantDisplayText } from "@/editor/utils/headingFields";
+import { getRequirementStatuses } from "@/services/requirementStatusService";
+import { useConfigStore } from "@/stores/configStore";
 
 // ── Pattern derivation ────────────────────────────────────────────────────────
 
@@ -402,6 +404,41 @@ export function analyzeRequirements(
   }
 
   return { requirements, duplicates, missing, countsBySection };
+}
+
+// ── Document variants ─────────────────────────────────────────────────────────
+
+/**
+ * Distinct [Variant] values carried by the document's requirement headings,
+ * in document order (user feature request, 2026-09-02: new requirements
+ * inherit the document's variant).
+ *
+ * Self-contained: reads the requirement pattern from configStore and the
+ * status vocabulary from the status service, so widgets and commands can
+ * call it with just the PM doc. Returns [] when no pattern is configured.
+ */
+export function collectDocumentVariants(doc: {
+  descendants: (cb: (node: { type: { name: string }; textContent: string }, pos: number) => void) => void;
+}): string[] {
+  const { requirementPattern } = useConfigStore.getState();
+  const compiled = compileRequirementPattern(requirementPattern);
+  if (!compiled) return [];
+  const statuses = getRequirementStatuses();
+  const seen = new Set<string>();
+  const out: string[] = [];
+  doc.descendants((node) => {
+    if (node.type.name !== "heading") return;
+    const text = node.textContent;
+    if (!matchRequirementId(text, compiled)) return;
+    const fields = parseHeadingFields(text, statuses);
+    if (!fields.variant) return;
+    const display = variantDisplayText(fields.variant.inner);
+    if (display && !seen.has(display)) {
+      seen.add(display);
+      out.push(display);
+    }
+  });
+  return out;
 }
 
 // ── Requirements Index ────────────────────────────────────────────────────────
