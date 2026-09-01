@@ -1,0 +1,43 @@
+name: Release
+
+# Pushing a tag like v0.4.1 builds the extension, packages the vsix, and
+# publishes a GitHub Release with the vsix attached. Marketplace publishing
+# stays a manual web upload of that vsix at marketplace.visualstudio.com/manage
+# (publisher akchattapayaksh) — CLI publish paths are blocked for personal
+# Microsoft accounts; see PUBLISHING.md.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Package vsix
+        run: |
+          cd packages/extension
+          npx vsce package --no-dependencies -o "../../md-requirements-editor-${GITHUB_REF_NAME#v}.vsix"
+      - name: Verify tag matches package version
+        run: |
+          PKG=$(node -p "require('./packages/extension/package.json').version")
+          [ "v$PKG" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != package version $PKG"; exit 1; }
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "md-requirements-editor-${GITHUB_REF_NAME#v}.vsix"
