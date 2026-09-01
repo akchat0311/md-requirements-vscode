@@ -45,7 +45,20 @@ export function collapseSoftBreaks(node: PMNode): PMNode {
   if (node.type !== undefined && LITERAL_TEXT_NODES.has(node.type)) return node;
   const out: PMNode = { ...node };
   if (node.content) {
-    out.content = node.content.map((child) =>
+    // A soft break is only meaningful BETWEEN two runs of text. Editing can
+    // strand one at a block edge (splitting a paragraph at a wrap point puts
+    // the softBreak at the new paragraph's head) — serialized, that becomes
+    // a stray newline: a phantom blank line above the user's new line
+    // (user report, 2026-09-01). Trim edge softBreaks and collapse runs.
+    const children = [...node.content];
+    while (children.length > 0 && children[0].type === "softBreak") children.shift();
+    while (children.length > 0 && children[children.length - 1].type === "softBreak") {
+      children.pop();
+    }
+    const deduped = children.filter(
+      (child, i) => !(child.type === "softBreak" && children[i - 1]?.type === "softBreak"),
+    );
+    out.content = deduped.map((child) =>
       child.type === "softBreak"
         ? ({ type: "text", text: "\n", ...(child.marks ? { marks: child.marks } : {}) } as PMNode)
         : collapseSoftBreaks(child),

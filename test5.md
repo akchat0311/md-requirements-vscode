@@ -23,7 +23,7 @@ and this line continues after it.
 >
 >
 
-> ### TRANS_feat_002 [Draft]
+> ### TRANS_Feature_001 [Draft]
 
 > ### TRANS_feat_003 [Draft]
 
@@ -31,7 +31,7 @@ and this line continues after it.
 >
 >
 
-/
+### TRANS_feat_007 [Draft]
 
 ## 2. Callouts
 
@@ -53,7 +53,13 @@ and this line continues after it.
 
 Inline math: the identity $e^{i\pi} + 1 = 0$ sits inside a sentence.
 
+### TRANS_feat_008 [Draft]
+
 Another: mass–energy equivalence is $E = mc^2$, and a fraction $\frac{a+b}{c}$.
+
+### TRANS_feat_006 [Draft]
+
+### TRANS_feat_005 [Draft]
 
 ## 4. Mermaid diagram
 
@@ -111,6 +117,8 @@ table freely; the tags must survive the save unchanged.)
 ## 8. Slash menu
 
 Put the cursor on the empty line below and type `/` to open the command menu:
+
+rgrgrgrgdf
 
 ## 9. Trailing-space preservation
 

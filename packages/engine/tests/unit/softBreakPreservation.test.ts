@@ -76,6 +76,46 @@ describe("soft break handling through the live editor", () => {
     expect(liveRoundTrip(bold).serialized).toBe(bold);
   });
 
+  it("splitting a paragraph at a soft-wrap boundary leaves no phantom blank line", () => {
+    // Regression (user report, 2026-09-01): Enter at a wrap point stranded
+    // the softBreak at the new paragraph's head → an extra blank line ABOVE
+    // the new line in the file.
+    const editor = new Editor({
+      element: document.createElement("div"),
+      extensions: createCoreExtensions(),
+      content: expandSoftBreaks(parseMarkdownToDoc("aaa first\nbbb second\nccc third\n")),
+    });
+    let pos = -1;
+    editor.state.doc.descendants((n, p) => {
+      if (n.isText && n.text?.includes("aaa first")) pos = p + n.nodeSize;
+    });
+    editor.commands.setTextSelection(pos);
+    editor.commands.splitBlock();
+    const out = serializeDocToMarkdown(collapseSoftBreaks(editor.getJSON() as PMNode));
+    expect(out).toBe("aaa first\n\nbbb second\nccc third\n");
+    editor.destroy();
+  });
+
+  it("collapse trims edge softBreaks and dedupes runs", () => {
+    const doc: PMNode = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "softBreak" },
+            { type: "text", text: "a" },
+            { type: "softBreak" },
+            { type: "softBreak" },
+            { type: "text", text: "b" },
+            { type: "softBreak" },
+          ],
+        },
+      ],
+    };
+    expect(serializeDocToMarkdown(collapseSoftBreaks(doc))).toBe("a\nb\n");
+  });
+
   it("never touches code blocks — their newlines are literal content", () => {
     // Regression: expansion used to descend into code fences, where the
     // schema drops softBreak nodes — mermaid/code sources lost all newlines.

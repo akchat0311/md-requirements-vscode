@@ -57,6 +57,20 @@ describe("stripEmptyTopLevelParagraphs", () => {
   });
 });
 
+describe("empty paragraphs inside blockquotes/callouts", () => {
+  it("Enter artifacts inside a blockquote never serialize as stray '>' lines", () => {
+    const doc = parseMarkdownToDoc("> quoted line\n");
+    const bq = doc.content![0];
+    const withEmpties: PMNode = {
+      ...doc,
+      content: [{ ...bq, content: [...bq.content!, { type: "paragraph" }, { type: "paragraph" }] }],
+    };
+    expect(serializeDocToMarkdown(stripEmptyTopLevelParagraphs(withEmpties))).toBe(
+      "> quoted line\n",
+    );
+  });
+});
+
 describe("safety gate is fixed-point-insensitive", () => {
   it("a canonical input with stray blank lines must not nuke preservation", () => {
     // Simulate the old failure: canonical output containing an extra blank

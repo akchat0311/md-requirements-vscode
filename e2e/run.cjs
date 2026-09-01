@@ -1206,6 +1206,43 @@ function check(name, cond, detail) {
     await page.close();
   }
 
+  {
+    // Scenario 18 (regression, user report 2026-09-01): pressing Enter at a
+    // soft-wrap boundary and typing must produce exactly ONE paragraph break
+    // — no phantom blank line above the new line.
+    const WDOC = "aaa first line\nbbb second line\nccc third line\n";
+    const page = await openEditor(browser, port, WDOC);
+    // Place the caret via the editor API (PM-state selection — DOM ranges
+    // race PM's selection sync; see scenario 16).
+    await page.evaluate(() => {
+      const e = window.__mdreqEditor;
+      let pos = -1;
+      e.state.doc.descendants((node, p) => {
+        if (node.isText && node.text.includes("aaa first line")) pos = p + node.nodeSize;
+      });
+      e.chain().focus().setTextSelection(pos).run();
+    });
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("xxx new text", { delay: 20 });
+    const md = await page
+      .waitForFunction(
+        () => {
+          const e = window.__messages.filter((m) => m.type === "edit").pop();
+          return e && e.markdown.includes("xxx new text") ? true : undefined;
+        },
+        null,
+        { timeout: 6000 },
+      )
+      .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
+      .catch(() => null);
+    ok = check(
+      "Enter at a soft-wrap adds exactly one break (no phantom line)",
+      md === "aaa first line\n\nxxx new text\nbbb second line\nccc third line\n",
+      JSON.stringify(md),
+    ) && ok;
+    await page.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(ok ? 0 : 1);
