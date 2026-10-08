@@ -7,8 +7,10 @@ import { stripEmptyTopLevelParagraphs } from "@/markdown/emptyParagraphs";
 import type { PMNode } from "@/markdown/types";
 
 /**
- * Regression (user report, 2026-09-01): deleting a mid-list item (clear its
- * text, then Backspace lifts it to a paragraph) SPLITS the ordered list.
+ * Regression (user report, 2026-09-01): lifting a mid-list item out of the
+ * list (Shift+Tab / liftListItem; Backspace used to do this too — it now joins
+ * into the previous item instead, see listItemBackspaceJoin.test.ts) SPLITS
+ * the ordered list.
  * The split-off tail copies the original list node's attrs (start=1) but its
  * items keep their stored source values ([3,4,5]) — and the renumber plugin
  * used to trust the first item's value as the start, so the tail looked

@@ -2,7 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { OutlineNode } from "@/types/outline";
 import type { RequirementStatus } from "@/types/requirementStatus";
 import type { RequirementPattern } from "@/stores/configStore";
-import { getNodeSectionRange, getSectionRange, renameHeading } from "@/editor/utils/outlineOps";
+import { getNodeSectionRange, getSectionRange, renameHeading, statusBracketNodes } from "@/editor/utils/outlineOps";
 import { parseHeadingFields, fieldsStartOffset, variantDisplayText } from "@/editor/utils/headingFields";
 import { getRequirementStatuses } from "@/services/requirementStatusService";
 import { useConfigStore } from "@/stores/configStore";
@@ -695,10 +695,12 @@ export function insertRequirementAfter(
   newId: string
 ): JSONContent[] {
   const [, to] = getSectionRange(content, nodeIndex, nodeLevel);
+  // Status brackets are italic by default: "ID [*Draft*]" in markdown.
+  const label = getRequirementStatuses().find((s) => s.id === "draft")?.label ?? "Draft";
   const heading: JSONContent = {
     type: "heading",
     attrs: { level: nodeLevel },
-    content: [{ type: "text", text: newId + " [Draft]" }],
+    content: [{ type: "text", text: newId + " " }, ...statusBracketNodes(label)],
   };
   // Mirror the container type of the source node so `> ### REQ` stays in blockquotes.
   const containerType = content[nodeIndex]?.type;

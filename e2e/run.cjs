@@ -1466,10 +1466,11 @@ function check(name, cond, detail) {
   }
 
   {
-    // Scenario 23 (user report, 2026-09-01): deleting a mid-list item's text
-    // and backspacing it out of the list splits the list — the tail must
-    // renumber from 1 in the FILE, not keep its stale source values
-    // ("1." followed by "3) 4) 5)").
+    // Scenario 23 (user reports 2026-09-01 / 2026-10-07): deleting a
+    // mid-list item's text and backspacing the empty item must keep ONE list
+    // — Backspace at the start of a non-first item joins into the previous
+    // item (it used to lift the item out, splitting the list into "1." and
+    // a new "1) 2) 3)") — and the file renumbers the remaining items 1..n.
     const LDOC = "1. canonical ordered list\n2. ghgj\n3. tyui\n4. qwert\n5. try pressing Enter\n";
     const page = await openEditor(browser, port, LDOC);
     await page.evaluate(() => {
@@ -1485,12 +1486,12 @@ function check(name, cond, detail) {
       e.chain().focus().setTextSelection({ from, to }).run();
     });
     await page.keyboard.press("Backspace"); // clear the item's text
-    await page.keyboard.press("Backspace"); // lift the empty item out of the list
+    await page.keyboard.press("Backspace"); // remove the empty item (join into previous)
     const md = await page
       .waitForFunction(
         () => {
           const e = window.__messages.filter((m) => m.type === "edit").pop();
-          return e && !e.markdown.includes("ghgj") && !e.markdown.includes("2.") ? true : undefined;
+          return e && !e.markdown.includes("ghgj") && e.markdown.includes("2. tyui") ? true : undefined;
         },
         null,
         { timeout: 6000 },
@@ -1498,8 +1499,11 @@ function check(name, cond, detail) {
       .then(() => page.evaluate(() => window.__messages.filter((m) => m.type === "edit").pop().markdown))
       .catch(() => null);
     ok = check(
-      "deleting a mid-list item renumbers the split-off tail from 1",
-      md !== null && md.includes("1. canonical ordered list") && md.includes("1) tyui\n2) qwert\n3) try pressing Enter"),
+      "deleting a mid-list item keeps one list, renumbered 1..n",
+      md !== null &&
+        md.includes("1. canonical ordered list\n2. tyui\n3. qwert\n4. try pressing Enter") &&
+        !md.includes("<!---->") &&
+        !md.includes(")"),
       JSON.stringify(md),
     ) && ok;
     await page.close();
